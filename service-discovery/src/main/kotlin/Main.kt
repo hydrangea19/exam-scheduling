@@ -4,7 +4,7 @@ package mk.ukim.finki.examscheduling
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 fun main() {
     val name = "Kotlin"
-    //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
+    // TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
     // to see how IntelliJ IDEA suggests fixing it.
     println("Hello, " + name + "!")
 
