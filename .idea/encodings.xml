@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/api-gateway/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/api-gateway/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/config-server/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/config-server/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/external-integration-service/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/external-integration-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/preference-management-service/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/preference-management-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/publishing-service/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/publishing-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/scheduling-service/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/scheduling-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/service-discovery/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/service-discovery/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-dtos/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-dtos/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-events/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-events/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-kernel/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-kernel/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-security/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-security/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-testing/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared-testing/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/user-management-service/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/user-management-service/src/main/resources" charset="UTF-8" />
+  </component>
+</project>
