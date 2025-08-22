@@ -38,10 +38,10 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
             </plugin>
-       <!--     <plugin>
-                <groupId>com.github.gantsign.maven</groupId>
-                <artifactId>ktlint-maven-plugin</artifactId>
-            </plugin>-->
+            <!--     <plugin>
+                     <groupId>com.github.gantsign.maven</groupId>
+                     <artifactId>ktlint-maven-plugin</artifactId>
+                 </plugin>-->
         </plugins>
     </build>
 
@@ -79,28 +79,15 @@
             <artifactId>spring-cloud-config-server</artifactId>
         </dependency>
 
-        <!-- Service Discovery -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-consul-discovery</artifactId>
-        </dependency>
-
-        <!-- Security -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-
         <!-- Testing -->
-        <dependency>
-            <groupId>mk.ukim.finki.examscheduling</groupId>
-            <artifactId>shared-testing</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-test-junit5</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
