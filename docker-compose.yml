@@ -11,8 +11,9 @@ volumes:
   zookeeper_data:
 
 services:
-
-  # POSTGRES
+  # =============================================================================
+  # Database - PostgreSQL
+  # =============================================================================
   postgres:
     image: postgres:15.5-alpine
     container_name: exam-scheduler-postgres-dev
@@ -26,7 +27,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init-dev.sql:/docker-entrypoint-initdb.d/init-dev.sql
+      - ./docker/postgres/init-dev-v2.sql:/docker-entrypoint-initdb.d/init-dev-v2.sql
     networks:
       - exam-scheduler-dev
     healthcheck:
@@ -35,7 +36,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # CONSUL
+  # =============================================================================
+  # Service Discovery - Consul
+  # =============================================================================
   consul:
     image: consul:1.17.0
     container_name: exam-scheduler-consul-dev
@@ -65,8 +68,9 @@ services:
       timeout: 3s
       retries: 3
 
-
-  # KAFKA
+  # =============================================================================
+  # Message Broker - Kafka
+  # =============================================================================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: exam-scheduler-zookeeper-dev
@@ -115,8 +119,9 @@ services:
       timeout: 5s
       retries: 3
 
-
-  #REDIS
+  # =============================================================================
+  # Caching - Redis
+  # =============================================================================
   redis:
     image: redis:7.2.4-alpine
     container_name: exam-scheduler-redis-dev
@@ -132,8 +137,11 @@ services:
       timeout: 3s
       retries: 3
 
+  # =============================================================================
+  # Development Tools
+  # =============================================================================
 
-  # DEV TOOLS
+  # Database Admin Tool
   pgadmin:
     image: dpage/pgadmin4:8.2
     container_name: exam-scheduler-pgadmin-dev
@@ -150,7 +158,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # KAFKA UI
+  # Kafka UI
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: exam-scheduler-kafka-ui-dev
@@ -167,7 +175,7 @@ services:
       kafka:
         condition: service_healthy
 
-  # REDIS COMMANDER
+  # Redis Commander
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: exam-scheduler-redis-ui-dev
