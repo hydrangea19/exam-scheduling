@@ -16,6 +16,16 @@ interface ScheduledExamRepository : JpaRepository<ScheduledExam, UUID> {
 
     @Query(
         """
+        SELECT se 
+        FROM ScheduledExam se 
+        JOIN se.professorIds p 
+        WHERE p = :professorId
+    """
+    )
+    fun findByProfessorId(professorId: String): List<ScheduledExam>
+
+    @Query(
+        """
         SELECT 
             exam_date,
             COUNT(*) as exams_count,

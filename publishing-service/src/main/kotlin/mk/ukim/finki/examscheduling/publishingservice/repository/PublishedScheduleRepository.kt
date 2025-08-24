@@ -21,6 +21,8 @@ interface PublishedScheduleRepository : JpaRepository<PublishedSchedule, UUID> {
 
     fun countByPublicationStatus(status: PublicationStatus): Long
 
+    fun findByScheduleId(scheduleId: UUID): PublishedSchedule?
+
     @Query(
         """
         SELECT 
