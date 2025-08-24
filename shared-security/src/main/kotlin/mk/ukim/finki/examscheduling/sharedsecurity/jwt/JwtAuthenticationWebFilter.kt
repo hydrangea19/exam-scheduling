@@ -20,26 +20,44 @@ class JwtAuthenticationWebFilter(
     private val logger = LoggerFactory.getLogger(JwtAuthenticationWebFilter::class.java)
 
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
-        val path = exchange.request.path.pathWithinApplication().value()
+        return Mono.defer {
+            val token = extractToken(exchange)
 
-        if (isPublicPath(path)) {
-            return chain.filter(exchange)
-        }
+            if (token != null && jwtTokenProvider.validateToken(token)) {
+                val userId = jwtTokenProvider.getUserIdFromToken(token)
+                val email = jwtTokenProvider.getEmailFromToken(token)
+                val role = jwtTokenProvider.getRoleFromToken(token)
+                val fullName = jwtTokenProvider.getFullNameFromToken(token)
 
-        val token = extractToken(exchange)
+                if (userId != null && email != null && role != null) {
+                    val userPrincipal = UserPrincipal(
+                        id = userId,
+                        email = email,
+                        role = role,
+                        fullName = fullName
+                    )
 
-        return if (token != null && jwtTokenProvider.validateToken(token)) {
-            authenticateToken(token)
-                .flatMap { authentication ->
+                    val authentication =
+                        UsernamePasswordAuthenticationToken(userPrincipal, null, userPrincipal.authorities)
+
                     chain.filter(exchange)
                         .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication))
+                } else {
+                    logger.warn("JWT token is valid but missing claims. Proceeding without authentication.")
+                    chain.filter(exchange)
                 }
-                .doOnNext {
-                    logger.debug("Successfully authenticated request to: {}", path)
-                }
+            } else {
+                chain.filter(exchange)
+            }
+        }
+    }
+
+    private fun extractToken(exchange: ServerWebExchange): String? {
+        val authHeader = exchange.request.headers.getFirst(HttpHeaders.AUTHORIZATION)
+        return if (StringUtils.hasText(authHeader) && authHeader!!.startsWith("Bearer ")) {
+            authHeader.substring(7)
         } else {
-            logger.warn("Invalid or missing JWT token for path: {}", path)
-            handleUnauthorized(exchange)
+            null
         }
     }
 
@@ -55,15 +73,6 @@ class JwtAuthenticationWebFilter(
 
         return publicPaths.any { publicPath ->
             path.startsWith(publicPath)
-        }
-    }
-
-    private fun extractToken(exchange: ServerWebExchange): String? {
-        val authHeader = exchange.request.headers.getFirst(HttpHeaders.AUTHORIZATION)
-        return if (StringUtils.hasText(authHeader) && authHeader!!.startsWith("Bearer ")) {
-            authHeader.substring(7)
-        } else {
-            null
         }
     }
 

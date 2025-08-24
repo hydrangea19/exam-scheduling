@@ -26,7 +26,7 @@ class SecurityConfiguration(
                 exchanges
                     .pathMatchers("/api/auth/**").permitAll()
                     .pathMatchers("/test/**").permitAll()
-                    .pathMatchers("/api/gateway/**").permitAll()
+                    .pathMatchers("/api/gateway/ping").permitAll()
                     .pathMatchers("/actuator/**").permitAll()
 
                     .pathMatchers("/api/admin/**").hasRole("ADMIN")

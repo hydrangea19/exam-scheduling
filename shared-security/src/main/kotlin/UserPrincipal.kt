@@ -5,7 +5,7 @@ import org.springframework.security.core.userdetails.UserDetails
 data class UserPrincipal(
     val id: String,
     private val email: String,
-    private val role: String,
+    val role: String,
     val fullName: String?,
     private val enabled: Boolean = true
 ) : UserDetails {
