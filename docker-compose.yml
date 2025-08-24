@@ -175,6 +175,40 @@ services:
       kafka:
         condition: service_healthy
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: exam-scheduler-kafka-init-dev
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - exam-scheduler-dev
+    command: |
+      bash -c "
+      echo 'Creating Kafka topics for exam scheduling system...'
+      
+      # Wait for Kafka to be fully ready
+      kafka-topics --bootstrap-server kafka:29092 --list
+      
+      # Create topics for each domain context
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic exam-session-events
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic preference-management-events  
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic scheduling-events
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic publishing-events
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic external-integration-events
+      
+      # Create topics for cross-service communication
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic system-notifications
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic audit-events
+      
+      # Create dead letter topics
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic dead-letter-queue
+      
+      echo 'Created topics:'
+      kafka-topics --bootstrap-server kafka:29092 --list
+      echo 'Kafka topics initialization complete.'
+      "
+
   # Redis Commander
   redis-commander:
     image: rediscommander/redis-commander:latest

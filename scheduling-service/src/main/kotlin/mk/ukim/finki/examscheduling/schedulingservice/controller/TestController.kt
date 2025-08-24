@@ -9,6 +9,7 @@ import mk.ukim.finki.examscheduling.schedulingservice.repository.AdjustmentLogRe
 import mk.ukim.finki.examscheduling.schedulingservice.repository.ExamSessionScheduleRepository
 import mk.ukim.finki.examscheduling.schedulingservice.repository.ProfessorCommentRepository
 import mk.ukim.finki.examscheduling.schedulingservice.repository.ScheduledExamRepository
+import mk.ukim.finki.examscheduling.schedulingservice.service.EventPublisher
 import mk.ukim.finki.examscheduling.schedulingservice.service.ExternalIntegrationClient
 import mk.ukim.finki.examscheduling.schedulingservice.service.PreferenceManagementClient
 import org.slf4j.LoggerFactory
@@ -31,7 +32,8 @@ class TestController @Autowired constructor(
     private val professorCommentRepository: ProfessorCommentRepository,
     private val adjustmentLogRepository: AdjustmentLogRepository,
     private val preferenceManagementClient: PreferenceManagementClient,
-    private val externalIntegrationClient: ExternalIntegrationClient
+    private val externalIntegrationClient: ExternalIntegrationClient,
+    private val eventPublisher: EventPublisher
 ) {
     private val logger = LoggerFactory.getLogger(TestController::class.java)
 
@@ -43,6 +45,143 @@ class TestController @Autowired constructor(
             "service" to "scheduling-service",
             "version" to "1.0.0-SNAPSHOT"
         )
+    }
+
+    // === Kafka Testing Endpoints ===
+
+    @GetMapping("/kafka/health")
+    fun kafkaHealth(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val healthEvent = mapOf(
+                "eventType" to "HealthCheck",
+                "service" to "scheduling-service",
+                "timestamp" to Instant.now().toString(),
+                "message" to "Kafka health check from scheduling service"
+            )
+
+            eventPublisher.publishSystemNotification(healthEvent, "health-check")
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "HEALTHY",
+                    "message" to "Scheduling service Kafka is working",
+                    "kafkaProducer" to "CONNECTED",
+                    "eventPublished" to healthEvent
+                )
+            )
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                mapOf(
+                    "status" to "UNHEALTHY",
+                    "error" to e.message
+                )
+            )
+        }
+    }
+
+    @PostMapping("/kafka/test-event-consumption")
+    fun testEventConsumption(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val testSessionId = "EVENT_TEST_${System.currentTimeMillis()}"
+
+            logger.info("Testing event consumption workflow with session: {}", testSessionId)
+
+            val schedulesBefore = examSessionScheduleRepository.count()
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "TEST_INITIATED",
+                    "message" to "Event consumption test ready - now publish events from preference-management",
+                    "testSessionId" to testSessionId,
+                    "instructions" to listOf(
+                        "1. Call preference-management: POST /api/test/kafka/publish-preference-workflow-events",
+                        "2. Watch scheduling service logs for event consumption",
+                        "3. Check if new schedule was created"
+                    ),
+                    "scheduleCountBefore" to schedulesBefore
+                )
+            )
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "error" to e.message
+                )
+            )
+        }
+    }
+
+    @GetMapping("/kafka/consumed-events-status")
+    fun getConsumedEventsStatus(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val recentSchedules = examSessionScheduleRepository.findAll()
+                .sortedByDescending { it.createdAt }
+                .take(5)
+
+            val kafkaCreatedSchedules = recentSchedules.filter {
+                it.examSessionPeriodId.startsWith("KAFKA_TEST") || it.examSessionPeriodId.startsWith("EVENT_TEST")
+            }
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "CONSUMPTION_STATUS",
+                    "totalSchedules" to recentSchedules.size,
+                    "kafkaCreatedSchedules" to kafkaCreatedSchedules.map { schedule ->
+                        mapOf(
+                            "id" to schedule.id,
+                            "examSessionPeriodId" to schedule.examSessionPeriodId,
+                            "status" to schedule.status,
+                            "createdAt" to schedule.createdAt
+                        )
+                    },
+                    "eventConsumptionWorking" to kafkaCreatedSchedules.isNotEmpty(),
+                    "message" to if (kafkaCreatedSchedules.isNotEmpty()) {
+                        "Event consumption is working - schedules created from Kafka events"
+                    } else {
+                        "No schedules created from Kafka events yet"
+                    }
+                )
+            )
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "error" to e.message
+                )
+            )
+        }
+    }
+
+    @PostMapping("/kafka/publish-scheduling-event")
+    fun publishSchedulingEvent(@RequestBody request: Map<String, Any>): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val eventType = request["eventType"] as? String ?: "TestSchedulingEvent"
+            val message = request["message"] as? String ?: "Test event from scheduling service"
+
+            val event = mapOf(
+                "eventType" to eventType,
+                "service" to "scheduling-service",
+                "message" to message,
+                "timestamp" to Instant.now().toString(),
+                "scheduleId" to UUID.randomUUID().toString(),
+                "metadata" to request
+            )
+
+            eventPublisher.publishSchedulingEvent(event)
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "SUCCESS",
+                    "message" to "Scheduling event published",
+                    "eventType" to eventType,
+                    "eventPublished" to event
+                )
+            )
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "error" to e.message
+                )
+            )
+        }
     }
 
     // === Service Communication Testing Endpoints ===

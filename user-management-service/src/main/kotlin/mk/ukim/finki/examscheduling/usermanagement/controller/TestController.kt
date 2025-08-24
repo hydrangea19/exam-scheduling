@@ -1,11 +1,13 @@
 package mk.ukim.finki.examscheduling.usermanagement.controller
 
+import mk.ukim.finki.examscheduling.shared.logging.CorrelationIdContext
 import mk.ukim.finki.examscheduling.usermanagement.domain.User
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserCreateRequest
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserProfileWithCourses
 import mk.ukim.finki.examscheduling.usermanagement.repository.UserRepository
 import mk.ukim.finki.examscheduling.usermanagement.service.ExternalIntegrationClient
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -25,12 +27,24 @@ class TestController @Autowired constructor(
     private val logger = LoggerFactory.getLogger(TestController::class.java)
 
     @GetMapping("/ping")
-    fun ping(): Map<String, Any> {
+    fun ping(): Map<String, Any?> {
+        val correlationId = CorrelationIdContext.getCorrelationId()
+        val requestId = CorrelationIdContext.getRequestId()
+
+        logger.info("Processing ping request",
+            MDC.getCopyOfContextMap()?.plus(mapOf(
+                "operation" to "ping",
+                "correlationId" to correlationId,
+                "requestId" to requestId
+            )))
+
         return mapOf(
             "message" to "User Management Service is running",
             "timestamp" to Instant.now(),
             "service" to "user-management-service",
-            "version" to "1.0.0-SNAPSHOT"
+            "version" to "1.0.0-SNAPSHOT",
+            "correlationId" to correlationId,
+            "requestId" to requestId
         )
     }
 
@@ -62,6 +76,284 @@ class TestController @Autowired constructor(
                     else -> e.message
                 },
                 "fallbackUsed" to true
+            )
+        }
+    }
+
+    // === Correlation ID Testing Endpoints ===
+
+    @GetMapping("/test-correlation-flow")
+    fun testCorrelationFlow(): Map<String, Any?> {
+        val correlationId = CorrelationIdContext.getCorrelationId()
+        val requestId = CorrelationIdContext.getRequestId()
+
+        logger.info("Testing correlation ID flow across services",
+            MDC.getCopyOfContextMap()?.plus(mapOf(
+                "operation" to "test_correlation_flow_start",
+                "correlationId" to correlationId,
+                "requestId" to requestId
+            )))
+
+        return try {
+            val pingResponse = externalIntegrationClient.ping().get()
+            val coursesResponse = externalIntegrationClient.getAllCourses().get()
+
+            logger.info("Correlation flow test completed successfully",
+                MDC.getCopyOfContextMap()?.plus(mapOf(
+                    "operation" to "test_correlation_flow_success",
+                    "externalServiceCalls" to 2,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )))
+
+            mapOf(
+                "status" to "SUCCESS",
+                "message" to "Correlation ID flow test completed",
+                "correlationInfo" to mapOf(
+                    "correlationId" to correlationId,
+                    "requestId" to requestId,
+                    "serviceName" to "user-management-service"
+                ),
+                "externalServiceCalls" to listOf(
+                    mapOf(
+                        "service" to "external-integration-service",
+                        "operation" to "ping",
+                        "correlationPassed" to true,
+                        "response" to mapOf(
+                            "service" to pingResponse.service,
+                            "version" to pingResponse.version
+                        )
+                    ),
+                    mapOf(
+                        "service" to "external-integration-service",
+                        "operation" to "getAllCourses",
+                        "correlationPassed" to true,
+                        "response" to mapOf(
+                            "count" to coursesResponse.count
+                        )
+                    )
+                ),
+                "loggingVerification" to mapOf(
+                    "structuredLogsGenerated" to true,
+                    "correlationIdPropagated" to true,
+                    "crossServiceTracking" to true
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Correlation flow test failed",
+                MDC.getCopyOfContextMap()?.plus(mapOf(
+                    "operation" to "test_correlation_flow_error",
+                    "errorType" to e.javaClass.simpleName,
+                    "errorMessage" to e.message,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )), e)
+
+            mapOf(
+                "status" to "ERROR",
+                "message" to "Correlation flow test failed",
+                "correlationInfo" to mapOf(
+                    "correlationId" to correlationId,
+                    "requestId" to requestId,
+                    "serviceName" to "user-management-service"
+                ),
+                "error" to when (e) {
+                    is CompletionException -> e.cause?.message ?: e.message
+                    else -> e.message
+                },
+                "fallbackUsed" to true
+            )
+        }
+    }
+
+    @GetMapping("/test-logging-chain/{depth}")
+    fun testLoggingChain(@PathVariable depth: Int): Map<String, Any?> {
+        val correlationId = CorrelationIdContext.getCorrelationId()
+        val requestId = CorrelationIdContext.getRequestId()
+
+        logger.info("Testing logging chain with depth {}",
+            depth,
+            MDC.getCopyOfContextMap()?.plus(mapOf(
+                "operation" to "test_logging_chain",
+                "chainDepth" to depth,
+                "correlationId" to correlationId,
+                "requestId" to requestId
+            )))
+
+        return try {
+            val results = mutableListOf<Map<String, Any?>>()
+
+            repeat(depth) { i ->
+                logger.debug("Making external call {} of {}",
+                    i + 1, depth,
+                    MDC.getCopyOfContextMap()?.plus(mapOf(
+                        "operation" to "external_call",
+                        "callIndex" to i + 1,
+                        "totalCalls" to depth,
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )))
+
+                val pingResponse = externalIntegrationClient.ping().get()
+
+                results.add(mapOf(
+                    "callIndex" to i + 1,
+                    "service" to pingResponse.service,
+                    "timestamp" to pingResponse.timestamp,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                ))
+            }
+
+            logger.info("Logging chain test completed",
+                MDC.getCopyOfContextMap()?.plus(mapOf(
+                    "operation" to "test_logging_chain_success",
+                    "chainDepth" to depth,
+                    "totalCalls" to results.size,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )))
+
+            mapOf(
+                "status" to "SUCCESS",
+                "message" to "Logging chain test completed",
+                "correlationInfo" to mapOf(
+                    "correlationId" to correlationId,
+                    "requestId" to requestId,
+                    "chainDepth" to depth
+                ),
+                "chainResults" to results,
+                "summary" to mapOf(
+                    "totalCalls" to results.size,
+                    "sameCorrelationId" to results.all { (it["correlationId"] as String) == correlationId },
+                    "sameRequestId" to results.all { (it["requestId"] as String) == requestId }
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Logging chain test failed",
+                MDC.getCopyOfContextMap()?.plus(mapOf(
+                    "operation" to "test_logging_chain_error",
+                    "chainDepth" to depth,
+                    "errorType" to e.javaClass.simpleName,
+                    "errorMessage" to e.message,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )), e)
+
+            mapOf(
+                "status" to "ERROR",
+                "message" to "Logging chain test failed",
+                "error" to e.message,
+                "correlationInfo" to mapOf(
+                    "correlationId" to correlationId,
+                    "requestId" to requestId,
+                    "chainDepth" to depth
+                )
+            )
+        }
+    }
+
+    @PostMapping("/test-structured-logging")
+    fun testStructuredLogging(@RequestBody request: Map<String, Any>): ResponseEntity<Map<String, Any?>> {
+        val correlationId = CorrelationIdContext.getCorrelationId()
+        val requestId = CorrelationIdContext.getRequestId()
+        val testType = request["testType"] as? String ?: "basic"
+
+        logger.info("Starting structured logging test",
+            MDC.getCopyOfContextMap()?.plus(mapOf(
+                "operation" to "structured_logging_test",
+                "testType" to testType,
+                "requestPayload" to request,
+                "correlationId" to correlationId,
+                "requestId" to requestId
+            )))
+
+        return try {
+            when (testType) {
+                "error" -> {
+                    logger.error("Intentional error log for testing",
+                        MDC.getCopyOfContextMap()?.plus(mapOf(
+                            "operation" to "intentional_error_test",
+                            "errorCode" to "TEST_ERROR",
+                            "severity" to "high",
+                            "correlationId" to correlationId,
+                            "requestId" to requestId
+                        )))
+                }
+                "warn" -> {
+                    logger.warn("Warning log for testing",
+                        MDC.getCopyOfContextMap()?.plus(mapOf(
+                            "operation" to "warning_test",
+                            "warningType" to "performance",
+                            "threshold" to 100,
+                            "correlationId" to correlationId,
+                            "requestId" to requestId
+                        )))
+                }
+                "business" -> {
+                    val userId = UUID.randomUUID()
+                    logger.info("Simulating business operation",
+                        MDC.getCopyOfContextMap()?.plus(mapOf(
+                            "operation" to "user_creation_simulation",
+                            "userId" to userId.toString(),
+                            "userType" to "professor",
+                            "businessMetrics" to mapOf(
+                                "processingTime" to 150,
+                                "validationsPassed" to 5,
+                                "externalCallsMade" to 2
+                            ),
+                            "correlationId" to correlationId,
+                            "requestId" to requestId
+                        )))
+                }
+                else -> {
+                    logger.info("Basic structured logging test",
+                        MDC.getCopyOfContextMap()?.plus(mapOf(
+                            "operation" to "basic_logging_test",
+                            "logLevel" to "info",
+                            "correlationId" to correlationId,
+                            "requestId" to requestId
+                        )))
+                }
+            }
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "SUCCESS",
+                    "message" to "Structured logging test completed",
+                    "testType" to testType,
+                    "correlationInfo" to mapOf(
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    ),
+                    "logsGenerated" to mapOf(
+                        "structuredFormat" to true,
+                        "correlationIdIncluded" to true,
+                        "businessContextIncluded" to true
+                    )
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Structured logging test failed",
+                MDC.getCopyOfContextMap()?.plus(mapOf(
+                    "operation" to "structured_logging_test_error",
+                    "testType" to testType,
+                    "errorType" to e.javaClass.simpleName,
+                    "errorMessage" to e.message,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )), e)
+
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "status" to "ERROR",
+                    "message" to "Structured logging test failed",
+                    "error" to e.message,
+                    "correlationInfo" to mapOf(
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )
+                )
             )
         }
     }

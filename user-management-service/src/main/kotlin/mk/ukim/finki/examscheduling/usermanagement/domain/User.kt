@@ -4,6 +4,7 @@ import jakarta.persistence.*
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+import mk.ukim.finki.examscheduling.usermanagement.domain.enums.UserRole
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
 import java.time.Instant
@@ -44,6 +45,13 @@ data class User(
     @Column(name = "middle_name", length = 100)
     @Size(max = 100, message = "Middle name cannot exceed 100 characters")
     val middleName: String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    var role: UserRole = UserRole.STUDENT,
+
+    @Column(name = "password_hash")
+    var passwordHash: String? = null,
 
     @Column(name = "active", nullable = false)
     val active: Boolean = true,

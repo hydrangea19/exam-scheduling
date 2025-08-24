@@ -9,6 +9,8 @@ import java.util.*
 @Repository
 interface ExamSessionScheduleRepository : JpaRepository<ExamSessionSchedule, UUID> {
 
+    fun findByExamSessionPeriodId(examSessionPeriodId: String): ExamSessionSchedule
+
     @Query(
         """
         SELECT 

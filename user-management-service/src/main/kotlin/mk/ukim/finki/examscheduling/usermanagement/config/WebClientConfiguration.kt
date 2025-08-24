@@ -3,6 +3,7 @@ package mk.ukim.finki.examscheduling.usermanagement.config
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
 import io.netty.handler.timeout.WriteTimeoutHandler
+import mk.ukim.finki.examscheduling.shared.logging.ReactiveWebClientCorrelationFilter
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -44,6 +45,7 @@ class WebClientConfiguration {
             .defaultHeader("Content-Type", "application/json")
             .defaultHeader("Accept", "application/json")
             .defaultHeader("User-Agent", "user-management-service/1.2B")
+            .filter(ReactiveWebClientCorrelationFilter.create())
             .build()
     }
 

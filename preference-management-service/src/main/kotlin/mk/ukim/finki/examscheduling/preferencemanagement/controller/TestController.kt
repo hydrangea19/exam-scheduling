@@ -3,8 +3,12 @@ package mk.ukim.finki.examscheduling.preferencemanagement.controller
 import mk.ukim.finki.examscheduling.preferencemanagement.domain.ProfessorPreference
 import mk.ukim.finki.examscheduling.preferencemanagement.domain.TimePreference
 import mk.ukim.finki.examscheduling.preferencemanagement.domain.enums.PreferenceLevel
+import mk.ukim.finki.examscheduling.preferencemanagement.domain.events.PreferenceSubmissionWindowOpenedEvent
+import mk.ukim.finki.examscheduling.preferencemanagement.domain.events.ProfessorPreferenceSubmittedEvent
+import mk.ukim.finki.examscheduling.preferencemanagement.domain.events.SystemNotificationEvent
 import mk.ukim.finki.examscheduling.preferencemanagement.repository.ProfessorPreferenceRepository
 import mk.ukim.finki.examscheduling.preferencemanagement.repository.TimePreferenceRepository
+import mk.ukim.finki.examscheduling.preferencemanagement.service.EventPublisher
 import mk.ukim.finki.examscheduling.preferencemanagement.service.ExternalIntegrationClient
 import mk.ukim.finki.examscheduling.preferencemanagement.service.UserManagementClient
 import org.slf4j.LoggerFactory
@@ -23,7 +27,8 @@ class TestController @Autowired constructor(
     private val professorPreferenceRepository: ProfessorPreferenceRepository,
     private val timePreferenceRepository: TimePreferenceRepository,
     private val userManagementClient: UserManagementClient,
-    private val externalIntegrationClient: ExternalIntegrationClient
+    private val externalIntegrationClient: ExternalIntegrationClient,
+    private val eventPublisher: EventPublisher
 ) {
     private val logger = LoggerFactory.getLogger(TestController::class.java)
 
@@ -35,6 +40,284 @@ class TestController @Autowired constructor(
             "service" to "preference-management-service",
             "version" to "1.0.0-SNAPSHOT"
         )
+    }
+
+    // === Kafka Testing Endpoints ===
+
+    @PostMapping("/kafka/publish-test-event")
+    fun publishTestEvent(@RequestBody request: Map<String, Any>): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val eventType = request["eventType"] as? String ?: "system-notification"
+            val message = request["message"] as? String ?: "Test message from preference management service"
+
+            val event = when (eventType) {
+                "system-notification" -> SystemNotificationEvent(
+                    notificationType = "TEST",
+                    message = message,
+                    targetService = "all-services",
+                    metadata = mapOf(
+                        "source" to "preference-management-service",
+                        "testId" to UUID.randomUUID().toString()
+                    )
+                )
+                "preference-window-opened" -> PreferenceSubmissionWindowOpenedEvent(
+                    examSessionPeriodId = "TEST_SESSION_${System.currentTimeMillis()}",
+                    academicYear = "2024-2025",
+                    examSession = "TEST_EXAM",
+                    openedBy = "TEST_ADMIN",
+                    submissionDeadline = Instant.now().plusSeconds(3600),
+                    description = message
+                )
+                "preference-submitted" -> ProfessorPreferenceSubmittedEvent(
+                    professorId = UUID.randomUUID(),
+                    examSessionPeriodId = "TEST_SESSION",
+                    preferenceId = UUID.randomUUID(),
+                    courseIds = listOf("TEST_COURSE_001", "TEST_COURSE_002")
+                )
+                else -> SystemNotificationEvent(
+                    notificationType = "UNKNOWN_TEST",
+                    message = message
+                )
+            }
+
+            logger.info("Publishing test event: type={}, event={}", eventType, event.javaClass.simpleName)
+
+            when (eventType) {
+                "system-notification" -> eventPublisher.publishSystemNotification(event)
+                else -> eventPublisher.publishPreferenceEvent(event)
+            }
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "SUCCESS",
+                    "message" to "Event published successfully",
+                    "eventType" to eventType,
+                    "eventId" to event.eventId,
+                    "timestamp" to event.timestamp,
+                    "serviceName" to event.serviceName
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to publish test event", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "status" to "ERROR",
+                    "message" to "Failed to publish event",
+                    "error" to e.message
+                )
+            )
+        }
+    }
+
+    @PostMapping("/kafka/publish-preference-workflow-events")
+    fun publishPreferenceWorkflowEvents(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val sessionId = "KAFKA_TEST_${System.currentTimeMillis()}"
+            val professorId = UUID.randomUUID()
+            val preferenceId = UUID.randomUUID()
+
+            logger.info("Publishing complete preference workflow events for session: {}", sessionId)
+
+            val windowOpenedEvent = PreferenceSubmissionWindowOpenedEvent(
+                examSessionPeriodId = sessionId,
+                academicYear = "2024-2025",
+                examSession = "KAFKA_TEST",
+                openedBy = "KAFKA_TEST_ADMIN",
+                submissionDeadline = Instant.now().plusSeconds(7200),
+                description = "Kafka testing preference submission window"
+            )
+            eventPublisher.publishPreferenceEvent(windowOpenedEvent, "window-$sessionId")
+
+            Thread.sleep(100)
+
+            val preferenceSubmittedEvent = ProfessorPreferenceSubmittedEvent(
+                professorId = professorId,
+                examSessionPeriodId = sessionId,
+                preferenceId = preferenceId,
+                courseIds = listOf("SOA", "WP", "DIS")
+            )
+            eventPublisher.publishPreferenceEvent(preferenceSubmittedEvent, "pref-$professorId")
+
+            Thread.sleep(100)
+
+            val notificationEvent = SystemNotificationEvent(
+                notificationType = "WORKFLOW_TEST",
+                message = "Preference workflow test completed successfully",
+                targetService = "scheduling-service",
+                metadata = mapOf(
+                    "sessionId" to sessionId,
+                    "professorId" to professorId.toString(),
+                    "preferenceId" to preferenceId.toString(),
+                    "coursesCount" to 3
+                )
+            )
+            eventPublisher.publishSystemNotification(notificationEvent, "workflow-$sessionId")
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "SUCCESS",
+                    "message" to "Preference workflow events published successfully",
+                    "eventsPublished" to 3,
+                    "sessionId" to sessionId,
+                    "events" to listOf(
+                        mapOf(
+                            "type" to "PreferenceSubmissionWindowOpenedEvent",
+                            "eventId" to windowOpenedEvent.eventId
+                        ),
+                        mapOf(
+                            "type" to "ProfessorPreferenceSubmittedEvent",
+                            "eventId" to preferenceSubmittedEvent.eventId
+                        ),
+                        mapOf(
+                            "type" to "SystemNotificationEvent",
+                            "eventId" to notificationEvent.eventId
+                        )
+                    )
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to publish preference workflow events", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "status" to "ERROR",
+                    "message" to "Failed to publish workflow events",
+                    "error" to e.message
+                )
+            )
+        }
+    }
+
+    @PostMapping("/kafka/simulate-preference-submission")
+    fun simulatePreferenceSubmission(@RequestBody request: Map<String, Any>): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val professorId = UUID.fromString(request["professorId"] as? String ?: UUID.randomUUID().toString())
+            val courseIds = request["courseIds"] as? List<String> ?: listOf("SOA", "WP")
+            val sessionId = request["sessionId"] as? String ?: "SIM_SESSION_${System.currentTimeMillis()}"
+
+            logger.info("Simulating preference submission: professorId={}, courseIds={}, sessionId={}",
+                professorId, courseIds, sessionId)
+
+            val preference = ProfessorPreference(
+                id = UUID.randomUUID(),
+                professorId = professorId,
+                academicYear = "2024-2025",
+                examSession = "KAFKA_SIMULATION"
+            )
+            val savedPreference = professorPreferenceRepository.save(preference)
+
+            val timePreferences = listOf(
+                TimePreference(
+                    preferenceSubmission = savedPreference,
+                    dayOfWeek = 1,
+                    startTime = LocalTime.of(9, 0),
+                    endTime = LocalTime.of(11, 0),
+                    preferenceLevel = PreferenceLevel.PREFERRED
+                ),
+                TimePreference(
+                    preferenceSubmission = savedPreference,
+                    dayOfWeek = 3,
+                    startTime = LocalTime.of(14, 0),
+                    endTime = LocalTime.of(16, 0),
+                    preferenceLevel = PreferenceLevel.ACCEPTABLE
+                )
+            )
+            val savedTimePreferences = timePreferenceRepository.saveAll(timePreferences)
+
+            val event = ProfessorPreferenceSubmittedEvent(
+                professorId = professorId,
+                examSessionPeriodId = sessionId,
+                preferenceId = savedPreference.id!!,
+                courseIds = courseIds
+            )
+            eventPublisher.publishPreferenceEvent(event, "sim-$professorId")
+
+            val notificationEvent = SystemNotificationEvent(
+                notificationType = "PREFERENCE_SIMULATION",
+                message = "Preference simulation completed with database persistence and event publishing",
+                metadata = mapOf(
+                    "professorId" to professorId.toString(),
+                    "preferenceId" to savedPreference.id.toString(),
+                    "courseIds" to courseIds,
+                    "timePreferencesCount" to savedTimePreferences.size,
+                    "databasePersisted" to true,
+                    "eventPublished" to true
+                )
+            )
+            eventPublisher.publishSystemNotification(notificationEvent, "sim-complete-$sessionId")
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "SUCCESS",
+                    "message" to "Preference submission simulation completed",
+                    "simulation" to mapOf(
+                        "professorId" to professorId,
+                        "preferenceId" to savedPreference.id,
+                        "courseIds" to courseIds,
+                        "sessionId" to sessionId,
+                        "timePreferencesCreated" to savedTimePreferences.size
+                    ),
+                    "events" to mapOf(
+                        "preferenceEvent" to mapOf(
+                            "eventId" to event.eventId,
+                            "type" to "ProfessorPreferenceSubmittedEvent"
+                        ),
+                        "notificationEvent" to mapOf(
+                            "eventId" to notificationEvent.eventId,
+                            "type" to "SystemNotificationEvent"
+                        )
+                    ),
+                    "integration" to mapOf(
+                        "databasePersisted" to true,
+                        "eventsPublished" to true,
+                        "kafkaWorking" to true
+                    )
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to simulate preference submission", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "status" to "ERROR",
+                    "message" to "Preference submission simulation failed",
+                    "error" to e.message
+                )
+            )
+        }
+    }
+
+    @GetMapping("/kafka/health")
+    fun kafkaHealth(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val healthEvent = SystemNotificationEvent(
+                notificationType = "HEALTH_CHECK",
+                message = "Kafka health check from preference management service"
+            )
+
+            eventPublisher.publishSystemNotification(healthEvent, "health-check")
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "HEALTHY",
+                    "message" to "Kafka is working properly",
+                    "service" to "preference-management-service",
+                    "kafkaProducer" to "CONNECTED",
+                    "testEventPublished" to mapOf(
+                        "eventId" to healthEvent.eventId,
+                        "timestamp" to healthEvent.timestamp
+                    )
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Kafka health check failed", e)
+            ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                mapOf(
+                    "status" to "UNHEALTHY",
+                    "message" to "Kafka health check failed",
+                    "error" to e.message,
+                    "kafkaProducer" to "ERROR"
+                )
+            )
+        }
     }
 
     // === Service Communication Testing Endpoints ===

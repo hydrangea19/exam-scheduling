@@ -12,11 +12,15 @@ interface UserRepository : JpaRepository<User, UUID> {
 
     fun existsByEmail(email: String): Boolean
 
-    @Query("""
+    fun findByEmail(email: String): User?
+
+    @Query(
+        """
         SELECT u FROM User u 
         WHERE LOWER(CONCAT(u.firstName, ' ', COALESCE(u.middleName, ''), ' ', u.lastName)) 
         LIKE LOWER(CONCAT('%', :namePattern, '%'))
-    """)
+    """
+    )
     fun findByFullNameContaining(@Param("namePattern") namePattern: String): List<User>
 
     @Query(

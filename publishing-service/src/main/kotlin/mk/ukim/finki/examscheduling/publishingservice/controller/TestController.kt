@@ -5,6 +5,7 @@ import mk.ukim.finki.examscheduling.publishingservice.domain.PublishedSchedule
 import mk.ukim.finki.examscheduling.publishingservice.domain.enums.PublicationStatus
 import mk.ukim.finki.examscheduling.publishingservice.repository.PublicationRecordRepository
 import mk.ukim.finki.examscheduling.publishingservice.repository.PublishedScheduleRepository
+import mk.ukim.finki.examscheduling.publishingservice.service.EventPublisher
 import mk.ukim.finki.examscheduling.publishingservice.service.SchedulingServiceClient
 import mk.ukim.finki.examscheduling.publishingservice.service.UserManagementClient
 import org.slf4j.LoggerFactory
@@ -23,7 +24,8 @@ class TestController @Autowired constructor(
     private val publishedScheduleRepository: PublishedScheduleRepository,
     private val publicationRecordRepository: PublicationRecordRepository,
     private val schedulingServiceClient: SchedulingServiceClient,
-    private val userManagementClient: UserManagementClient
+    private val userManagementClient: UserManagementClient,
+    private val eventPublisher: EventPublisher
 ) {
 
     private val logger = LoggerFactory.getLogger(TestController::class.java)
@@ -35,6 +37,46 @@ class TestController @Autowired constructor(
             "timestamp" to Instant.now(),
             "service" to "publishing-service",
             "version" to "1.0.0-SNAPSHOT"
+        )
+    }
+
+    // === Kafka Testing Endpoints ===
+
+
+    @GetMapping("/kafka/health")
+    fun kafkaHealth(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val healthEvent = mapOf(
+                "eventType" to "HealthCheck",
+                "service" to "publishing-service",
+                "timestamp" to Instant.now().toString()
+            )
+            eventPublisher.publishPublishingEvent(healthEvent)
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "HEALTHY",
+                    "kafkaProducer" to "CONNECTED"
+                )
+            )
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                mapOf("status" to "UNHEALTHY", "error" to e.message)
+            )
+        }
+    }
+
+    @GetMapping("/kafka/consumed-events-status")
+    fun getConsumedEventsStatus(): ResponseEntity<Map<String, Any?>> {
+        val kafkaCreatedSchedules = publishedScheduleRepository.findAll()
+            .filter { it.title?.contains("Auto-published from Kafka") == true }
+
+        return ResponseEntity.ok(
+            mapOf(
+                "kafkaCreatedSchedules" to kafkaCreatedSchedules.size,
+                "eventConsumptionWorking" to kafkaCreatedSchedules.isNotEmpty(),
+                "message" to if (kafkaCreatedSchedules.isNotEmpty()) "Kafka events being consumed" else "No Kafka events consumed yet"
+            )
         )
     }
 
