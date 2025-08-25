@@ -1,6 +1,7 @@
 package mk.ukim.finki.examscheduling.usermanagement.controller
 
 import mk.ukim.finki.examscheduling.shared.logging.CorrelationIdContext
+import mk.ukim.finki.examscheduling.sharedsecurity.utilities.SecurityUtils
 import mk.ukim.finki.examscheduling.usermanagement.domain.User
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserCreateRequest
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserProfileWithCourses
@@ -31,12 +32,16 @@ class TestController @Autowired constructor(
         val correlationId = CorrelationIdContext.getCorrelationId()
         val requestId = CorrelationIdContext.getRequestId()
 
-        logger.info("Processing ping request",
-            MDC.getCopyOfContextMap()?.plus(mapOf(
-                "operation" to "ping",
-                "correlationId" to correlationId,
-                "requestId" to requestId
-            )))
+        logger.info(
+            "Processing ping request",
+            MDC.getCopyOfContextMap()?.plus(
+                mapOf(
+                    "operation" to "ping",
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )
+            )
+        )
 
         return mapOf(
             "message" to "User Management Service is running",
@@ -87,24 +92,32 @@ class TestController @Autowired constructor(
         val correlationId = CorrelationIdContext.getCorrelationId()
         val requestId = CorrelationIdContext.getRequestId()
 
-        logger.info("Testing correlation ID flow across services",
-            MDC.getCopyOfContextMap()?.plus(mapOf(
-                "operation" to "test_correlation_flow_start",
-                "correlationId" to correlationId,
-                "requestId" to requestId
-            )))
+        logger.info(
+            "Testing correlation ID flow across services",
+            MDC.getCopyOfContextMap()?.plus(
+                mapOf(
+                    "operation" to "test_correlation_flow_start",
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )
+            )
+        )
 
         return try {
             val pingResponse = externalIntegrationClient.ping().get()
             val coursesResponse = externalIntegrationClient.getAllCourses().get()
 
-            logger.info("Correlation flow test completed successfully",
-                MDC.getCopyOfContextMap()?.plus(mapOf(
-                    "operation" to "test_correlation_flow_success",
-                    "externalServiceCalls" to 2,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )))
+            logger.info(
+                "Correlation flow test completed successfully",
+                MDC.getCopyOfContextMap()?.plus(
+                    mapOf(
+                        "operation" to "test_correlation_flow_success",
+                        "externalServiceCalls" to 2,
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )
+                )
+            )
 
             mapOf(
                 "status" to "SUCCESS",
@@ -140,14 +153,18 @@ class TestController @Autowired constructor(
                 )
             )
         } catch (e: Exception) {
-            logger.error("Correlation flow test failed",
-                MDC.getCopyOfContextMap()?.plus(mapOf(
-                    "operation" to "test_correlation_flow_error",
-                    "errorType" to e.javaClass.simpleName,
-                    "errorMessage" to e.message,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )), e)
+            logger.error(
+                "Correlation flow test failed",
+                MDC.getCopyOfContextMap()?.plus(
+                    mapOf(
+                        "operation" to "test_correlation_flow_error",
+                        "errorType" to e.javaClass.simpleName,
+                        "errorMessage" to e.message,
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )
+                ), e
+            )
 
             mapOf(
                 "status" to "ERROR",
@@ -171,48 +188,62 @@ class TestController @Autowired constructor(
         val correlationId = CorrelationIdContext.getCorrelationId()
         val requestId = CorrelationIdContext.getRequestId()
 
-        logger.info("Testing logging chain with depth {}",
+        logger.info(
+            "Testing logging chain with depth {}",
             depth,
-            MDC.getCopyOfContextMap()?.plus(mapOf(
-                "operation" to "test_logging_chain",
-                "chainDepth" to depth,
-                "correlationId" to correlationId,
-                "requestId" to requestId
-            )))
+            MDC.getCopyOfContextMap()?.plus(
+                mapOf(
+                    "operation" to "test_logging_chain",
+                    "chainDepth" to depth,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )
+            )
+        )
 
         return try {
             val results = mutableListOf<Map<String, Any?>>()
 
             repeat(depth) { i ->
-                logger.debug("Making external call {} of {}",
+                logger.debug(
+                    "Making external call {} of {}",
                     i + 1, depth,
-                    MDC.getCopyOfContextMap()?.plus(mapOf(
-                        "operation" to "external_call",
-                        "callIndex" to i + 1,
-                        "totalCalls" to depth,
-                        "correlationId" to correlationId,
-                        "requestId" to requestId
-                    )))
+                    MDC.getCopyOfContextMap()?.plus(
+                        mapOf(
+                            "operation" to "external_call",
+                            "callIndex" to i + 1,
+                            "totalCalls" to depth,
+                            "correlationId" to correlationId,
+                            "requestId" to requestId
+                        )
+                    )
+                )
 
                 val pingResponse = externalIntegrationClient.ping().get()
 
-                results.add(mapOf(
-                    "callIndex" to i + 1,
-                    "service" to pingResponse.service,
-                    "timestamp" to pingResponse.timestamp,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                ))
+                results.add(
+                    mapOf(
+                        "callIndex" to i + 1,
+                        "service" to pingResponse.service,
+                        "timestamp" to pingResponse.timestamp,
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )
+                )
             }
 
-            logger.info("Logging chain test completed",
-                MDC.getCopyOfContextMap()?.plus(mapOf(
-                    "operation" to "test_logging_chain_success",
-                    "chainDepth" to depth,
-                    "totalCalls" to results.size,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )))
+            logger.info(
+                "Logging chain test completed",
+                MDC.getCopyOfContextMap()?.plus(
+                    mapOf(
+                        "operation" to "test_logging_chain_success",
+                        "chainDepth" to depth,
+                        "totalCalls" to results.size,
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )
+                )
+            )
 
             mapOf(
                 "status" to "SUCCESS",
@@ -230,15 +261,19 @@ class TestController @Autowired constructor(
                 )
             )
         } catch (e: Exception) {
-            logger.error("Logging chain test failed",
-                MDC.getCopyOfContextMap()?.plus(mapOf(
-                    "operation" to "test_logging_chain_error",
-                    "chainDepth" to depth,
-                    "errorType" to e.javaClass.simpleName,
-                    "errorMessage" to e.message,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )), e)
+            logger.error(
+                "Logging chain test failed",
+                MDC.getCopyOfContextMap()?.plus(
+                    mapOf(
+                        "operation" to "test_logging_chain_error",
+                        "chainDepth" to depth,
+                        "errorType" to e.javaClass.simpleName,
+                        "errorMessage" to e.message,
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )
+                ), e
+            )
 
             mapOf(
                 "status" to "ERROR",
@@ -259,61 +294,84 @@ class TestController @Autowired constructor(
         val requestId = CorrelationIdContext.getRequestId()
         val testType = request["testType"] as? String ?: "basic"
 
-        logger.info("Starting structured logging test",
-            MDC.getCopyOfContextMap()?.plus(mapOf(
-                "operation" to "structured_logging_test",
-                "testType" to testType,
-                "requestPayload" to request,
-                "correlationId" to correlationId,
-                "requestId" to requestId
-            )))
+        logger.info(
+            "Starting structured logging test",
+            MDC.getCopyOfContextMap()?.plus(
+                mapOf(
+                    "operation" to "structured_logging_test",
+                    "testType" to testType,
+                    "requestPayload" to request,
+                    "correlationId" to correlationId,
+                    "requestId" to requestId
+                )
+            )
+        )
 
         return try {
             when (testType) {
                 "error" -> {
-                    logger.error("Intentional error log for testing",
-                        MDC.getCopyOfContextMap()?.plus(mapOf(
-                            "operation" to "intentional_error_test",
-                            "errorCode" to "TEST_ERROR",
-                            "severity" to "high",
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )))
+                    logger.error(
+                        "Intentional error log for testing",
+                        MDC.getCopyOfContextMap()?.plus(
+                            mapOf(
+                                "operation" to "intentional_error_test",
+                                "errorCode" to "TEST_ERROR",
+                                "severity" to "high",
+                                "correlationId" to correlationId,
+                                "requestId" to requestId
+                            )
+                        )
+                    )
                 }
+
                 "warn" -> {
-                    logger.warn("Warning log for testing",
-                        MDC.getCopyOfContextMap()?.plus(mapOf(
-                            "operation" to "warning_test",
-                            "warningType" to "performance",
-                            "threshold" to 100,
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )))
+                    logger.warn(
+                        "Warning log for testing",
+                        MDC.getCopyOfContextMap()?.plus(
+                            mapOf(
+                                "operation" to "warning_test",
+                                "warningType" to "performance",
+                                "threshold" to 100,
+                                "correlationId" to correlationId,
+                                "requestId" to requestId
+                            )
+                        )
+                    )
                 }
+
                 "business" -> {
                     val userId = UUID.randomUUID()
-                    logger.info("Simulating business operation",
-                        MDC.getCopyOfContextMap()?.plus(mapOf(
-                            "operation" to "user_creation_simulation",
-                            "userId" to userId.toString(),
-                            "userType" to "professor",
-                            "businessMetrics" to mapOf(
-                                "processingTime" to 150,
-                                "validationsPassed" to 5,
-                                "externalCallsMade" to 2
-                            ),
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )))
+                    logger.info(
+                        "Simulating business operation",
+                        MDC.getCopyOfContextMap()?.plus(
+                            mapOf(
+                                "operation" to "user_creation_simulation",
+                                "userId" to userId.toString(),
+                                "userType" to "professor",
+                                "businessMetrics" to mapOf(
+                                    "processingTime" to 150,
+                                    "validationsPassed" to 5,
+                                    "externalCallsMade" to 2
+                                ),
+                                "correlationId" to correlationId,
+                                "requestId" to requestId
+                            )
+                        )
+                    )
                 }
+
                 else -> {
-                    logger.info("Basic structured logging test",
-                        MDC.getCopyOfContextMap()?.plus(mapOf(
-                            "operation" to "basic_logging_test",
-                            "logLevel" to "info",
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )))
+                    logger.info(
+                        "Basic structured logging test",
+                        MDC.getCopyOfContextMap()?.plus(
+                            mapOf(
+                                "operation" to "basic_logging_test",
+                                "logLevel" to "info",
+                                "correlationId" to correlationId,
+                                "requestId" to requestId
+                            )
+                        )
+                    )
                 }
             }
 
@@ -334,15 +392,19 @@ class TestController @Autowired constructor(
                 )
             )
         } catch (e: Exception) {
-            logger.error("Structured logging test failed",
-                MDC.getCopyOfContextMap()?.plus(mapOf(
-                    "operation" to "structured_logging_test_error",
-                    "testType" to testType,
-                    "errorType" to e.javaClass.simpleName,
-                    "errorMessage" to e.message,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )), e)
+            logger.error(
+                "Structured logging test failed",
+                MDC.getCopyOfContextMap()?.plus(
+                    mapOf(
+                        "operation" to "structured_logging_test_error",
+                        "testType" to testType,
+                        "errorType" to e.javaClass.simpleName,
+                        "errorMessage" to e.message,
+                        "correlationId" to correlationId,
+                        "requestId" to requestId
+                    )
+                ), e
+            )
 
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 mapOf(
@@ -601,6 +663,66 @@ class TestController @Autowired constructor(
                         is CompletionException -> e.cause?.message ?: e.message
                         else -> e.message
                     }
+                )
+            )
+        }
+    }
+
+    @GetMapping("/test-service-to-service-auth")
+    fun testServiceToServiceAuth(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val currentUser = SecurityUtils.getCurrentUser()
+
+            logger.info(
+                "Testing service-to-service authentication - Current user: {}, Role: {}",
+                currentUser?.username, currentUser?.role
+            )
+
+            val pingResponse = externalIntegrationClient.ping().get()
+
+            val coursesResponse = externalIntegrationClient.getAllCourses().get()
+
+            logger.info(
+                "Service-to-service authentication test completed successfully - Ping: {}, Courses: {}",
+                pingResponse.service, coursesResponse.count
+            )
+
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "SUCCESS",
+                    "message" to "Service-to-service authentication working",
+                    "authenticationInfo" to mapOf(
+                        "currentUser" to currentUser?.username,
+                        "currentRole" to currentUser?.role,
+                        "authenticated" to SecurityUtils.isAuthenticated()
+                    ),
+                    "serviceCallResults" to mapOf(
+                        "ping" to mapOf(
+                            "service" to pingResponse.service,
+                            "version" to pingResponse.version,
+                            "timestamp" to pingResponse.timestamp
+                        ),
+                        "courses" to mapOf(
+                            "count" to coursesResponse.count,
+                            "statisticsCount" to coursesResponse.statistics.size
+                        )
+                    ),
+                    "timestamp" to Instant.now()
+                )
+            )
+        } catch (e: Exception) {
+            logger.error(
+                "Service-to-service authentication test failed: {} - {}",
+                e.javaClass.simpleName, e.message, e
+            )
+
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "status" to "ERROR",
+                    "message" to "Service-to-service authentication test failed",
+                    "error" to e.message,
+                    "errorType" to e.javaClass.simpleName,
+                    "timestamp" to Instant.now()
                 )
             )
         }

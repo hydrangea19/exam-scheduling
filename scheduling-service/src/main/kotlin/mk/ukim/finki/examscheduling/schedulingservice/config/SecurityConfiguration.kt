@@ -1,9 +1,8 @@
-package mk.ukim.finki.examscheduling.usermanagement.config
+package mk.ukim.finki.examscheduling.schedulingservice.config
 
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtAuthenticationFilter
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenProvider
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.ServiceToServiceSecurityConfig
-
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -27,21 +26,15 @@ class SecurityConfiguration(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/api/test/ping").permitAll()
                     .requestMatchers("/actuator/**").permitAll()
 
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                    .requestMatchers("/api/users/**").hasRole("ADMIN")
 
                     .requestMatchers("/api/professor/**").hasAnyRole("ADMIN", "PROFESSOR")
+                    .requestMatchers("/api/scheduling/**").hasAnyRole("ADMIN", "PROFESSOR")
 
-                    .requestMatchers("/api/test/test-external-service").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
-                    .requestMatchers("/api/test/test-correlation-flow").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
-                    .requestMatchers("/api/test/test-logging-chain/**").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
-                    .requestMatchers("/api/test/test-structured-logging").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
-                    .requestMatchers("/api/test/test-full-integration").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
-                    .requestMatchers("/api/test/users/**").hasAnyRole("ADMIN", "SYSTEM")
+                    .requestMatchers("/api/test/**").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
 
                     .anyRequest().authenticated()
             }

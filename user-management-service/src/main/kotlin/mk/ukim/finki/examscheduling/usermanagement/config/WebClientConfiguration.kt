@@ -4,17 +4,24 @@ import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
 import io.netty.handler.timeout.WriteTimeoutHandler
 import mk.ukim.finki.examscheduling.shared.logging.ReactiveWebClientCorrelationFilter
+import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenProvider
+import mk.ukim.finki.examscheduling.sharedsecurity.utilities.SecurityUtils
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.reactive.ReactorClientHttpConnector
+import org.springframework.web.reactive.function.client.ClientRequest
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction
 import org.springframework.web.reactive.function.client.WebClient
+import reactor.core.publisher.Mono
 import reactor.netty.http.client.HttpClient
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 @Configuration
-class WebClientConfiguration {
+class WebClientConfiguration(
+    private val jwtTokenProvider: JwtTokenProvider
+) {
 
     @Value("\${external-services.external-integration.base-url}")
     private lateinit var externalIntegrationBaseUrl: String
@@ -46,7 +53,40 @@ class WebClientConfiguration {
             .defaultHeader("Accept", "application/json")
             .defaultHeader("User-Agent", "user-management-service/1.2B")
             .filter(ReactiveWebClientCorrelationFilter.create())
+            .filter(addJwtTokenFilter())
             .build()
+    }
+
+    private fun addJwtTokenFilter(): ExchangeFilterFunction {
+        return ExchangeFilterFunction.ofRequestProcessor { request ->
+            try {
+                val currentUser = SecurityUtils.getCurrentUser()
+                val token = if (currentUser != null) {
+                    jwtTokenProvider.generateToken(
+                        userId = currentUser.id,
+                        email = currentUser.username,
+                        role = currentUser.role,
+                        fullName = currentUser.fullName
+                    )
+                } else {
+                    jwtTokenProvider.generateToken(
+                        userId = "system",
+                        email = "system@examscheduling.local",
+                        role = "SYSTEM",
+                        fullName = "System Service"
+                    )
+                }
+
+                val modifiedRequest = ClientRequest.from(request)
+                    .header("Authorization", "Bearer $token")
+                    .build()
+
+                Mono.just(modifiedRequest)
+            } catch (e: Exception) {
+                println("Failed to add JWT token: ${e.message}")
+                Mono.just(request)
+            }
+        }
     }
 
     @Bean

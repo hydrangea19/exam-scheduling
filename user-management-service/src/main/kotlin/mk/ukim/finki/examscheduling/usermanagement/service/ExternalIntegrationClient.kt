@@ -3,12 +3,10 @@ package mk.ukim.finki.examscheduling.usermanagement.service
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter
-import mk.ukim.finki.examscheduling.shared.logging.CorrelationIdContext
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.courseintegration.ExternalCourseSearchResponse
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.courseintegration.ExternalCoursesResponse
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.courseintegration.ExternalServicePingResponse
 import org.slf4j.LoggerFactory
-import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
@@ -17,7 +15,7 @@ import java.util.concurrent.CompletableFuture
 
 @Service
 class ExternalIntegrationClient(
-    @Qualifier("externalIntegrationWebClient") private val webClient: WebClient
+    @Qualifier("serviceWebClient") private val webClient: WebClient
 ) {
     private val logger = LoggerFactory.getLogger(ExternalIntegrationClient::class.java)
 
@@ -31,55 +29,18 @@ class ExternalIntegrationClient(
     @Retry(name = RETRY_NAME)
     @TimeLimiter(name = TIME_LIMITER_NAME)
     fun ping(): CompletableFuture<ExternalServicePingResponse> {
-        val correlationId = CorrelationIdContext.getCorrelationId()
-        val requestId = CorrelationIdContext.getRequestId()
-
-        logger.info(
-            "Calling external integration service ping endpoint",
-            MDC.getCopyOfContextMap()?.plus(
-                mapOf(
-                    "operation" to "external_service_ping",
-                    "targetService" to "external-integration-service",
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )
-            )
-        )
+        logger.info("Calling external integration service ping endpoint with JWT authentication")
 
         return webClient
             .get()
-            .uri("/api/test/ping")
+            .uri("http://localhost:8002/api/test/ping")
             .retrieve()
             .bodyToMono(ExternalServicePingResponse::class.java)
             .doOnSuccess { response ->
-                logger.info(
-                    "Successfully pinged external integration service",
-                    MDC.getCopyOfContextMap()?.plus(
-                        mapOf(
-                            "operation" to "external_service_ping_success",
-                            "targetService" to "external-integration-service",
-                            "responseService" to response.service,
-                            "responseVersion" to response.version,
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )
-                    )
-                )
+                logger.info("Successfully pinged external integration service: {}", response.service)
             }
             .doOnError { error ->
-                logger.error(
-                    "Failed to ping external integration service",
-                    MDC.getCopyOfContextMap()?.plus(
-                        mapOf(
-                            "operation" to "external_service_ping_error",
-                            "targetService" to "external-integration-service",
-                            "errorType" to error.javaClass.simpleName,
-                            "errorMessage" to error.message,
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )
-                    ), error
-                )
+                logger.error("Failed to ping external integration service: {}", error.message, error)
             }
             .toFuture()
     }
@@ -88,54 +49,18 @@ class ExternalIntegrationClient(
     @Retry(name = RETRY_NAME)
     @TimeLimiter(name = TIME_LIMITER_NAME)
     fun getAllCourses(): CompletableFuture<ExternalCoursesResponse> {
-        val correlationId = CorrelationIdContext.getCorrelationId()
-        val requestId = CorrelationIdContext.getRequestId()
-
-        logger.info(
-            "Fetching all courses from external integration service",
-            MDC.getCopyOfContextMap()?.plus(
-                mapOf(
-                    "operation" to "fetch_all_courses",
-                    "targetService" to "external-integration-service",
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )
-            )
-        )
+        logger.info("Fetching all courses from external integration service with JWT authentication")
 
         return webClient
             .get()
-            .uri("/api/test/courses")
+            .uri("http://localhost:8002/api/test/courses")
             .retrieve()
             .bodyToMono(ExternalCoursesResponse::class.java)
             .doOnSuccess { response ->
-                logger.info(
-                    "Successfully fetched courses from external integration service",
-                    MDC.getCopyOfContextMap()?.plus(
-                        mapOf(
-                            "operation" to "fetch_all_courses_success",
-                            "targetService" to "external-integration-service",
-                            "coursesCount" to response.count,
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )
-                    )
-                )
+                logger.info("Successfully fetched {} courses from external integration service", response.count)
             }
             .doOnError { error ->
-                logger.error(
-                    "Failed to fetch courses from external integration service",
-                    MDC.getCopyOfContextMap()?.plus(
-                        mapOf(
-                            "operation" to "fetch_all_courses_error",
-                            "targetService" to "external-integration-service",
-                            "errorType" to error.javaClass.simpleName,
-                            "errorMessage" to error.message,
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )
-                    ), error
-                )
+                logger.error("Failed to fetch courses from external integration service: {}", error.message, error)
             }
             .toFuture()
     }
@@ -144,63 +69,25 @@ class ExternalIntegrationClient(
     @Retry(name = RETRY_NAME)
     @TimeLimiter(name = TIME_LIMITER_NAME)
     fun searchCourses(query: String): CompletableFuture<ExternalCourseSearchResponse> {
-        val correlationId = CorrelationIdContext.getCorrelationId()
-        val requestId = CorrelationIdContext.getRequestId()
-        logger.debug("Searching courses with query '{}' in external integration service", query)
+        logger.info("Searching courses with query '{}' in external integration service with JWT authentication", query)
 
         return webClient
             .get()
-            .uri("/api/test/courses/search?query={query}", query)
+            .uri("http://localhost:8002/api/test/courses/search?query={query}", query)
             .retrieve()
             .bodyToMono(ExternalCourseSearchResponse::class.java)
             .doOnSuccess { response ->
-                logger.info(
-                    "Successfully searched courses from external integration service",
-                    MDC.getCopyOfContextMap()?.plus(
-                        mapOf(
-                            "operation" to "search_courses_sucess",
-                            "targetService" to "external-integration-service",
-                            "coursesCount" to response.count,
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )
-                    )
-                )
+                logger.info("Successfully found {} courses for query '{}'", response.count, query)
             }
             .doOnError { error ->
-                logger.error(
-                    "Failed to search courses from external integration service",
-                    MDC.getCopyOfContextMap()?.plus(
-                        mapOf(
-                            "operation" to "search_courses_Error",
-                            "targetService" to "external-integration-service",
-                            "errorType" to error.javaClass.simpleName,
-                            "errorMessage" to error.message,
-                            "correlationId" to correlationId,
-                            "requestId" to requestId
-                        )
-                    ), error
-                )
+                logger.error("Failed to search courses for query '{}': {}", query, error.message, error)
             }
             .toFuture()
     }
 
+    // Fallback methods
     fun pingFallback(exception: Exception): CompletableFuture<ExternalServicePingResponse> {
-        val correlationId = CorrelationIdContext.getCorrelationId()
-        val requestId = CorrelationIdContext.getRequestId()
-
-        logger.warn(
-            "Using ping fallback for external integration service",
-            MDC.getCopyOfContextMap()?.plus(
-                mapOf(
-                    "operation" to "external_service_ping_fallback",
-                    "targetService" to "external-integration-service",
-                    "fallbackReason" to exception.message,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )
-            )
-        )
+        logger.warn("Using ping fallback due to: {}", exception.message)
 
         return CompletableFuture.completedFuture(
             ExternalServicePingResponse(
@@ -214,21 +101,7 @@ class ExternalIntegrationClient(
     }
 
     fun getAllCoursesFallback(exception: Exception): CompletableFuture<ExternalCoursesResponse> {
-        val correlationId = CorrelationIdContext.getCorrelationId()
-        val requestId = CorrelationIdContext.getRequestId()
-
-        logger.warn(
-            "Using getAllCourses fallback for external integration service",
-            MDC.getCopyOfContextMap()?.plus(
-                mapOf(
-                    "operation" to "fetch_all_courses_fallback",
-                    "targetService" to "external-integration-service",
-                    "fallbackReason" to exception.message,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )
-            )
-        )
+        logger.warn("Using getAllCourses fallback due to: {}", exception.message)
 
         return CompletableFuture.completedFuture(
             ExternalCoursesResponse(
@@ -240,20 +113,8 @@ class ExternalIntegrationClient(
     }
 
     fun searchCoursesFallback(query: String, exception: Exception): CompletableFuture<ExternalCourseSearchResponse> {
-        val correlationId = CorrelationIdContext.getCorrelationId()
-        val requestId = CorrelationIdContext.getRequestId()
-        logger.warn(
-            "Using searchCoursesFallback fallback for search query",
-            MDC.getCopyOfContextMap()?.plus(
-                mapOf(
-                    "operation" to "search_courses_fallback",
-                    "targetService" to "external-integration-service",
-                    "fallbackReason" to exception.message,
-                    "correlationId" to correlationId,
-                    "requestId" to requestId
-                )
-            )
-        )
+        logger.warn("Using searchCourses fallback for query '{}' due to: {}", query, exception.message)
+
         return CompletableFuture.completedFuture(
             ExternalCourseSearchResponse(
                 query = query,
