@@ -1,11 +1,11 @@
 package mk.ukim.finki.examscheduling.sharedsecurity.jwt
 
-import UserPrincipal
+import mk.ukim.finki.examscheduling.sharedsecurity.domain.UserPrincipal
+import mk.ukim.finki.examscheduling.sharedsecurity.dto.keycloak.TokenValidationResult
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.ReactiveSecurityContextHolder
 import org.springframework.util.StringUtils
 import org.springframework.web.server.ServerWebExchange
@@ -14,41 +14,54 @@ import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
 
 class JwtAuthenticationWebFilter(
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenService: JwtTokenService
 ) : WebFilter {
 
     private val logger = LoggerFactory.getLogger(JwtAuthenticationWebFilter::class.java)
 
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
-        return Mono.defer {
-            val token = extractToken(exchange)
+        val path = exchange.request.path.value()
+        if (isPublicPath(path)) {
+            return chain.filter(exchange)
+        }
 
-            if (token != null && jwtTokenProvider.validateToken(token)) {
-                val userId = jwtTokenProvider.getUserIdFromToken(token)
-                val email = jwtTokenProvider.getEmailFromToken(token)
-                val role = jwtTokenProvider.getRoleFromToken(token)
-                val fullName = jwtTokenProvider.getFullNameFromToken(token)
+        val token = extractToken(exchange)
 
-                if (userId != null && email != null && role != null) {
+        return if (token != null) {
+            val validationResult = jwtTokenService.validateToken(token)
+
+            if (validationResult is TokenValidationResult.Valid) {
+                val subject = validationResult.subject ?: validationResult.email
+                val role = validationResult.role ?: "GUEST"
+                val email = validationResult.email
+
+                if (subject != null && email != null) {
                     val userPrincipal = UserPrincipal(
-                        id = userId,
+                        id = subject,
                         email = email,
                         role = role,
-                        fullName = fullName
+                        fullName = validationResult.fullName
                     )
 
-                    val authentication =
-                        UsernamePasswordAuthenticationToken(userPrincipal, null, userPrincipal.authorities)
+                    val authentication = UsernamePasswordAuthenticationToken(
+                        userPrincipal,
+                        null,
+                        userPrincipal.authorities
+                    )
 
                     chain.filter(exchange)
                         .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication))
                 } else {
-                    logger.warn("JWT token is valid but missing claims. Proceeding without authentication.")
-                    chain.filter(exchange)
+                    logger.warn("Valid token is missing required claims (subject/email).")
+                    handleUnauthorized(exchange)
                 }
             } else {
-                chain.filter(exchange)
+                logger.warn("Received an invalid token. Reason: ${validationResult.error}")
+                handleUnauthorized(exchange)
             }
+        } else {
+            logger.warn("Authorization header missing. Rejecting request.")
+            handleUnauthorized(exchange)
         }
     }
 
@@ -64,50 +77,19 @@ class JwtAuthenticationWebFilter(
     private fun isPublicPath(path: String): Boolean {
         val publicPaths = listOf(
             "/api/auth/",
-            "/api/auth",
-            "/test/",
+            "/api/test/ping",
             "/actuator/",
-            "/api/gateway/",
-            "/api/gateway"
+            "/api/gateway/"
         )
-
-        return publicPaths.any { publicPath ->
-            path.startsWith(publicPath)
-        }
-    }
-
-    private fun authenticateToken(token: String): Mono<UsernamePasswordAuthenticationToken> {
-        return Mono.fromCallable {
-            val userId = jwtTokenProvider.getUserIdFromToken(token)
-            val email = jwtTokenProvider.getEmailFromToken(token)
-            val role = jwtTokenProvider.getRoleFromToken(token)
-            val fullName = jwtTokenProvider.getFullNameFromToken(token)
-
-            if (userId != null && email != null && role != null) {
-                val userPrincipal = UserPrincipal(
-                    id = userId,
-                    email = email,
-                    role = role,
-                    fullName = fullName
-                )
-
-                val authorities = listOf(SimpleGrantedAuthority("ROLE_$role"))
-
-                UsernamePasswordAuthenticationToken(userPrincipal, null, authorities)
-            } else {
-                throw IllegalArgumentException("Invalid token claims")
-            }
-        }
+        return publicPaths.any { publicPath -> path.startsWith(publicPath) }
     }
 
     private fun handleUnauthorized(exchange: ServerWebExchange): Mono<Void> {
         val response = exchange.response
         response.statusCode = HttpStatus.UNAUTHORIZED
         response.headers.add("Content-Type", "application/json")
-
         val body = """{"error": "Unauthorized", "message": "Valid JWT token required"}"""
         val buffer = response.bufferFactory().wrap(body.toByteArray())
-
         return response.writeWith(Mono.just(buffer))
     }
 }

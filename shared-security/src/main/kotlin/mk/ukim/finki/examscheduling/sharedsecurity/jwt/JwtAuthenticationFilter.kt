@@ -1,9 +1,10 @@
 package mk.ukim.finki.examscheduling.sharedsecurity.jwt
 
-import UserPrincipal
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import mk.ukim.finki.examscheduling.sharedsecurity.domain.UserPrincipal
+import mk.ukim.finki.examscheduling.sharedsecurity.dto.keycloak.TokenValidationResult
 import org.slf4j.LoggerFactory
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
@@ -12,7 +13,7 @@ import org.springframework.util.StringUtils
 import org.springframework.web.filter.OncePerRequestFilter
 
 class JwtAuthenticationFilter(
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenService: JwtTokenService
 ) : OncePerRequestFilter() {
 
     private val logger = LoggerFactory.getLogger(JwtAuthenticationFilter::class.java)
@@ -25,30 +26,37 @@ class JwtAuthenticationFilter(
         try {
             val jwt = getJwtFromRequest(request)
 
-            if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
-                val userId = jwtTokenProvider.getUserIdFromToken(jwt)
-                val email = jwtTokenProvider.getEmailFromToken(jwt)
-                val role = jwtTokenProvider.getRoleFromToken(jwt)
-                val fullName = jwtTokenProvider.getFullNameFromToken(jwt)
+            if (jwt != null) {
+                val validationResult = jwtTokenService.validateToken(jwt)
 
-                if (userId != null && email != null && role != null) {
-                    val userPrincipal = UserPrincipal(
-                        id = userId,
-                        email = email,
-                        role = role,
-                        fullName = fullName
-                    )
+                if (validationResult is TokenValidationResult.Valid) {
+                    val subject = validationResult.subject ?: validationResult.email
+                    val role = validationResult.role ?: "GUEST"
+                    val email = validationResult.email
 
-                    val authentication = UsernamePasswordAuthenticationToken(
-                        userPrincipal,
-                        null,
-                        userPrincipal.authorities
-                    )
-                    authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
+                    if (subject != null && email != null) {
+                        val userPrincipal = UserPrincipal(
+                            id = subject,
+                            email = email,
+                            role = role,
+                            fullName = validationResult.fullName
+                        )
 
-                    SecurityContextHolder.getContext().authentication = authentication
+                        val authentication = UsernamePasswordAuthenticationToken(
+                            userPrincipal,
+                            null,
+                            userPrincipal.authorities
+                        )
 
-                    logger.debug("Set authentication for user: $email with role: $role")
+                        authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
+                        SecurityContextHolder.getContext().authentication = authentication
+
+                        logger.debug("Set authentication for user: ${email} with role: ${role}")
+                    } else {
+                        logger.warn("Valid token is missing required claims (subject/email)")
+                    }
+                } else if (validationResult is TokenValidationResult.Invalid) {
+                    logger.warn("Invalid token received. Reason: ${validationResult.reason}")
                 }
             }
         } catch (ex: Exception) {

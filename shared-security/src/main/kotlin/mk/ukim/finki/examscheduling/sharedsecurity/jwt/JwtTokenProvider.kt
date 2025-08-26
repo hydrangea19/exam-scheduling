@@ -21,7 +21,7 @@ class JwtTokenProvider {
     private lateinit var jwtSecret: String
 
     @Value("\${jwt.expiration:86400}")
-    private var jwtExpiration: Int = 86400 // 24h in seconds
+    private var jwtExpiration: Int = 86400
 
     private fun getSigningKey(): Key = Keys.hmacShaKeyFor(jwtSecret.toByteArray())
 
@@ -44,7 +44,7 @@ class JwtTokenProvider {
 
     fun generateRefreshToken(userId: String): String {
         val now = Instant.now()
-        val expiry = now.plus((jwtExpiration * 7).toLong(), ChronoUnit.SECONDS) // 7 days
+        val expiry = now.plus((jwtExpiration * 7).toLong(), ChronoUnit.SECONDS)
 
         return Jwts.builder()
             .setSubject(userId)

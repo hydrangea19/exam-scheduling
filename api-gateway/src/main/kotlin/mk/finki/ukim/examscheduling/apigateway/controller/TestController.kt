@@ -1,6 +1,6 @@
 package mk.finki.ukim.examscheduling.apigateway.controller
 
-import UserPrincipal
+import mk.ukim.finki.examscheduling.sharedsecurity.domain.UserPrincipal
 import mk.ukim.finki.examscheduling.sharedsecurity.utilities.SecurityUtils
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

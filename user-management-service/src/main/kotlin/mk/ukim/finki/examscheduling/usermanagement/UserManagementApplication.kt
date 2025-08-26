@@ -7,11 +7,13 @@ import org.springframework.context.annotation.ComponentScan
 
 @SpringBootApplication
 //@EnableFeignClients
-@ComponentScan(basePackages = [
-    "mk.ukim.finki.examscheduling.shared",
-    "mk.ukim.finki.examscheduling.usermanagement",
-    "mk.ukim.finki.examscheduling.sharedsecurity",
-])
+@ComponentScan(
+    basePackages = [
+        "mk.ukim.finki.examscheduling.shared",
+        "mk.ukim.finki.examscheduling.usermanagement",
+        "mk.ukim.finki.examscheduling.sharedsecurity",
+    ]
+)
 class UserManagementApplication
 
 fun main(args: Array<String>) {

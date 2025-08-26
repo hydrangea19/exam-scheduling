@@ -1,8 +1,7 @@
 package mk.finki.ukim.examscheduling.apigateway.config
 
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtAuthenticationWebFilter
-import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenProvider
-
+import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenService
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
@@ -13,7 +12,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain
 @Configuration
 @EnableWebFluxSecurity
 class SecurityConfiguration(
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenService: JwtTokenService
 ) {
 
     @Bean
@@ -44,7 +43,7 @@ class SecurityConfiguration(
                     .anyExchange().authenticated()
             }
             .addFilterBefore(
-                JwtAuthenticationWebFilter(jwtTokenProvider),
+                JwtAuthenticationWebFilter(jwtTokenService),
                 SecurityWebFiltersOrder.AUTHENTICATION
             )
             .build()

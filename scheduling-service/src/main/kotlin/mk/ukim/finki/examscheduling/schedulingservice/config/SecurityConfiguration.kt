@@ -1,7 +1,7 @@
 package mk.ukim.finki.examscheduling.schedulingservice.config
 
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtAuthenticationFilter
-import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenProvider
+import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenService
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.ServiceToServiceSecurityConfig
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -16,7 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @Import(ServiceToServiceSecurityConfig::class)
 class SecurityConfiguration(
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenService: JwtTokenService
 ) {
 
     @Bean
@@ -39,7 +39,7 @@ class SecurityConfiguration(
                     .anyRequest().authenticated()
             }
             .addFilterBefore(
-                JwtAuthenticationFilter(jwtTokenProvider),
+                JwtAuthenticationFilter(jwtTokenService),
                 UsernamePasswordAuthenticationFilter::class.java
             )
 

@@ -1,6 +1,6 @@
 package mk.ukim.finki.examscheduling.sharedsecurity.utilities
 
-import UserPrincipal
+import mk.ukim.finki.examscheduling.sharedsecurity.domain.UserPrincipal
 import org.springframework.security.core.context.SecurityContextHolder
 
 object SecurityUtils {

@@ -9,6 +9,7 @@ volumes:
   consul_data:
   kafka_data:
   zookeeper_data:
+  keycloak_data:
 
 services:
   # =============================================================================
@@ -31,10 +32,60 @@ services:
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d exam_scheduler_dev"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d exam_scheduler_dev" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # =============================================================================
+  # Authentication & Authorization - Keycloak
+  # =============================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.4
+    container_name: exam-scheduler-keycloak-dev
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+      - "8443:8443"
+    environment:
+      # Admin user for Keycloak console
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # Database configuration - using our existing PostgreSQL
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/exam_scheduler_dev
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KC_DB_SCHEMA: keycloak
+
+      # Development configuration
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+
+      # Logging
+      KC_LOG_LEVEL: INFO
+      KC_LOG_CONSOLE_COLOR: true
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./docker/keycloak/import:/opt/keycloak/data/import
+    networks:
+      - exam-scheduler-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - start-dev
+      - --import-realm
+    healthcheck:
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: http://localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3;timeout --preserve-status 1 cat <&3 | grep -m 1 status | grep -m 1 UP" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # =============================================================================
   # Service Discovery - Consul
@@ -63,7 +114,7 @@ services:
       -ui 
       -log-level=INFO
     healthcheck:
-      test: ["CMD", "consul", "members"]
+      test: [ "CMD", "consul", "members" ]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -85,7 +136,7 @@ services:
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      test: [ "CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -114,7 +165,7 @@ services:
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -132,7 +183,7 @@ services:
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 3

@@ -1,6 +1,8 @@
 package mk.ukim.finki.examscheduling.usermanagement.controller
 
 import mk.ukim.finki.examscheduling.shared.logging.CorrelationIdContext
+import mk.ukim.finki.examscheduling.sharedsecurity.dto.keycloak.TokenValidationResult
+import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenService
 import mk.ukim.finki.examscheduling.sharedsecurity.utilities.SecurityUtils
 import mk.ukim.finki.examscheduling.usermanagement.domain.User
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserCreateRequest
@@ -22,7 +24,8 @@ import java.util.concurrent.CompletionException
 @RequestMapping("/api/test")
 class TestController @Autowired constructor(
     private val userRepository: UserRepository,
-    private val externalIntegrationClient: ExternalIntegrationClient
+    private val externalIntegrationClient: ExternalIntegrationClient,
+    private val jwtTokenService : JwtTokenService
 ) {
 
     private val logger = LoggerFactory.getLogger(TestController::class.java)
@@ -723,6 +726,44 @@ class TestController @Autowired constructor(
                     "error" to e.message,
                     "errorType" to e.javaClass.simpleName,
                     "timestamp" to Instant.now()
+                )
+            )
+        }
+    }
+
+    @GetMapping("/test-jwt-validation")
+    fun testJwtValidation(@RequestParam token: String): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val validationResult = jwtTokenService.validateToken(token)
+
+            if (validationResult.isValid && validationResult is TokenValidationResult.Valid) {
+                ResponseEntity.ok(
+                    mapOf(
+                        "valid" to true,
+                        "tokenType" to validationResult.tokenType.name,
+                        "subject" to validationResult.subject,
+                        "email" to validationResult.email,
+                        "role" to validationResult.role,
+                        "fullName" to validationResult.fullName,
+                        "preferredUsername" to validationResult.preferredUsername,
+                        "roles" to validationResult.roles,
+                        "expiresAt" to validationResult.expiresAt
+                    )
+                )
+            } else {
+                ResponseEntity.ok(
+                    mapOf(
+                        "valid" to false,
+                        "error" to validationResult.error
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            logger.error("JWT validation test failed", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "error" to "JWT validation test failed",
+                    "message" to e.message
                 )
             )
         }
