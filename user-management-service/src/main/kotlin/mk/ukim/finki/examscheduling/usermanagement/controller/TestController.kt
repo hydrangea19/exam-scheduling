@@ -1,6 +1,7 @@
 package mk.ukim.finki.examscheduling.usermanagement.controller
 
 import mk.ukim.finki.examscheduling.shared.logging.CorrelationIdContext
+import mk.ukim.finki.examscheduling.sharedsecurity.dto.AuthenticationRequest
 import mk.ukim.finki.examscheduling.sharedsecurity.dto.keycloak.TokenValidationResult
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenService
 import mk.ukim.finki.examscheduling.sharedsecurity.utilities.SecurityUtils
@@ -8,7 +9,9 @@ import mk.ukim.finki.examscheduling.usermanagement.domain.User
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserCreateRequest
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserProfileWithCourses
 import mk.ukim.finki.examscheduling.usermanagement.repository.UserRepository
+import mk.ukim.finki.examscheduling.usermanagement.service.AuthenticationService
 import mk.ukim.finki.examscheduling.usermanagement.service.ExternalIntegrationClient
+import mk.ukim.finki.examscheduling.usermanagement.service.UserSyncService
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Autowired
@@ -25,7 +28,9 @@ import java.util.concurrent.CompletionException
 class TestController @Autowired constructor(
     private val userRepository: UserRepository,
     private val externalIntegrationClient: ExternalIntegrationClient,
-    private val jwtTokenService : JwtTokenService
+    private val jwtTokenService: JwtTokenService,
+    private val userSyncService: UserSyncService,
+    private val authenticationService: AuthenticationService
 ) {
 
     private val logger = LoggerFactory.getLogger(TestController::class.java)
@@ -764,6 +769,109 @@ class TestController @Autowired constructor(
                 mapOf(
                     "error" to "JWT validation test failed",
                     "message" to e.message
+                )
+            )
+        }
+    }
+
+    @PostMapping("/test-hybrid-authentication")
+    fun testHybridAuthentication(@RequestBody request: Map<String, Any>): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val email = request["email"] as? String ?: return ResponseEntity.badRequest().body(
+                mapOf("error" to "Email is required")
+            )
+            val password = request["password"] as? String ?: return ResponseEntity.badRequest().body(
+                mapOf("error" to "Password is required")
+            )
+            val loginType = request["loginType"] as? String ?: "auto"
+
+            logger.info("Testing hybrid authentication for: {} with loginType: {}", email, loginType)
+
+            val authRequest = AuthenticationRequest(
+                email = email,
+                password = password,
+                loginType = loginType
+            )
+
+            val authResponse = authenticationService.authenticateUser(authRequest)
+
+            if (authResponse != null) {
+                ResponseEntity.ok(
+                    mapOf(
+                        "status" to "SUCCESS",
+                        "message" to "Authentication successful",
+                        "tokenType" to authResponse.tokenType,
+                        "user" to mapOf(
+                            "id" to authResponse.user.id,
+                            "email" to authResponse.user.email,
+                            "fullName" to authResponse.user.fullName,
+                            "role" to authResponse.user.role
+                        ),
+                        "tokenInfo" to mapOf(
+                            "accessToken" to authResponse.accessToken,
+                            "refreshToken" to authResponse.refreshToken,
+                            "expiresIn" to authResponse.expiresIn,
+                            "hasRefreshToken" to (authResponse.refreshToken != null)
+                        ),
+                        "timestamp" to Instant.now()
+                    )
+                )
+            } else {
+                ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    mapOf(
+                        "status" to "FAILED",
+                        "message" to "Authentication failed",
+                        "loginType" to loginType,
+                        "timestamp" to Instant.now()
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            logger.error("Hybrid authentication test failed", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "status" to "ERROR",
+                    "message" to "Authentication test failed: ${e.message}",
+                    "timestamp" to Instant.now()
+                )
+            )
+        }
+    }
+
+    @GetMapping("/test-user-sync-stats")
+    fun testUserSyncStats(): ResponseEntity<Map<String, Any?>> {
+        return try {
+            val stats = userSyncService.getSyncStatistics()
+
+            ResponseEntity.ok(
+                mapOf(
+                    "syncStatistics" to mapOf(
+                        "totalUsers" to stats.totalUsers,
+                        "activeUsers" to stats.activeUsers,
+                        "inactiveUsers" to stats.inactiveUsers,
+                        "roleBreakdown" to stats.roleBreakdown.mapKeys { it.key.name },
+                        "lastSyncTime" to stats.lastSyncTime
+                    ),
+                    "allUsers" to userRepository.findAll().map { user ->
+                        mapOf(
+                            "id" to user.id,
+                            "email" to user.email,
+                            "fullName" to user.getFullName(),
+                            "role" to user.role.name,
+                            "active" to user.active,
+                            "createdAt" to user.createdAt,
+                            "updatedAt" to user.updatedAt
+                        )
+                    },
+                    "timestamp" to Instant.now()
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("User sync stats test failed", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                mapOf(
+                    "error" to "User sync stats failed: ${e.message}",
+                    "timestamp" to Instant.now()
                 )
             )
         }

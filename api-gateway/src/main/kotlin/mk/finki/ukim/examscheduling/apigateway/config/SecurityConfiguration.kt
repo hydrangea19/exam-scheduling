@@ -23,23 +23,33 @@ class SecurityConfiguration(
             .formLogin { it.disable() }
             .authorizeExchange { exchanges ->
                 exchanges
-                    .pathMatchers("/api/auth/**").permitAll()
-                    .pathMatchers("/test/**").permitAll()
+                    // Public endpoints
+                    .pathMatchers("/api/auth/**").permitAll() // User management authentication
+                    .pathMatchers("/test/**").permitAll() // Test endpoints
                     .pathMatchers("/api/gateway/ping").permitAll()
+                    .pathMatchers("/api/gateway/auth-status").permitAll() // Gateway status check
                     .pathMatchers("/actuator/**").permitAll()
 
+                    // Admin-only endpoints across all services
                     .pathMatchers("/api/admin/**").hasRole("ADMIN")
+                    .pathMatchers("/api/users/**").hasRole("ADMIN")
 
+                    // Professor and admin endpoints
                     .pathMatchers("/api/professor/**").hasAnyRole("ADMIN", "PROFESSOR")
                     .pathMatchers("/api/preferences/**").hasAnyRole("ADMIN", "PROFESSOR")
-
                     .pathMatchers("/api/scheduling/**").hasAnyRole("ADMIN", "PROFESSOR")
                     .pathMatchers("/api/publishing/**").hasAnyRole("ADMIN", "PROFESSOR")
 
-                    .pathMatchers("/api/users/**").hasRole("ADMIN")
+                    // Public content
+                    .pathMatchers("/api/public/**").permitAll()
 
-                    .pathMatchers("/api/external/**").hasAnyRole("ADMIN", "PROFESSOR")
+                    // External integration endpoints
+                    .pathMatchers("/api/external/**").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
 
+                    // Test and debugging endpoints
+                    .pathMatchers("/api/test/**").hasAnyRole("ADMIN", "PROFESSOR", "SYSTEM")
+
+                    // All other requests require authentication
                     .anyExchange().authenticated()
             }
             .addFilterBefore(

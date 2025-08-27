@@ -41,7 +41,7 @@ class KeycloakClientService(
     /**
      * Authenticate user with Keycloak using Resource Owner Password Credentials flow
      */
-    fun authenticateUser(username: String, password: String): Mono<KeycloakTokenResponse> {
+    fun authenticateUser(username: String, password: String?): Mono<KeycloakTokenResponse> {
         logger.info("Attempting to authenticate user with Keycloak: {}", username)
 
         val formData: MultiValueMap<String, String> = LinkedMultiValueMap()

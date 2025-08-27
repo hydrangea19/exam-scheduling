@@ -30,6 +30,9 @@ class SecurityConfiguration(
                     .requestMatchers("/api/test/ping").permitAll()
                     .requestMatchers("/actuator/**").permitAll()
 
+                    .requestMatchers("/api/test/test-hybrid-authentication").permitAll()
+                    .requestMatchers("/api/test/test-user-sync-stats").permitAll()
+
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/users/**").hasRole("ADMIN")
 
