@@ -21,8 +21,8 @@
         <keycloak.version>23.0.6</keycloak.version>
         <testcontainers.version>1.19.3</testcontainers.version>
         <pact.version>4.5.7</pact.version>
-       <!-- <ktlint.version>0.50.0</ktlint.version>
-        <detekt.version>1.23.4</detekt.version>-->
+        <!-- <ktlint.version>0.50.0</ktlint.version>
+         <detekt.version>1.23.4</detekt.version>-->
     </properties>
 
     <modules>
@@ -82,6 +82,52 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- Spring Kafka -->
+            <dependency>
+                <groupId>org.springframework.kafka</groupId>
+                <artifactId>spring-kafka</artifactId>
+                <version>3.0.12</version>
+            </dependency>
+
+            <!-- Spring Kafka Test -->
+            <dependency>
+                <groupId>org.springframework.kafka</groupId>
+                <artifactId>spring-kafka-test</artifactId>
+                <version>3.0.12</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Jackson for JSON serialization -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.15.2</version>
+            </dependency>
+
+            <!-- Spring Security -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-security</artifactId>
+                <version>${spring.boot.version}</version>
+            </dependency>
+
+            <!-- JWT -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>0.11.5</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>0.11.5</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>0.11.5</version>
+            </dependency>
+
             <!-- Kotlin -->
             <dependency>
                 <groupId>org.jetbrains.kotlin</groupId>
@@ -130,29 +176,43 @@
                 <version>${pact.version}</version>
             </dependency>
 
+            <!-- Logback JSON encoder -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>7.4</version>
+            </dependency>
+
+            <!-- SLF4J MDC support -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>2.0.9</version>
+            </dependency>
+
             <!-- Internal Dependencies -->
             <dependency>
-                <groupId>mk.ukim.finki.examscheduler</groupId>
+                <groupId>mk.ukim.finki.examscheduling</groupId>
                 <artifactId>shared-kernel</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>mk.ukim.finki.examscheduler</groupId>
+                <groupId>mk.ukim.finki.examscheduling</groupId>
                 <artifactId>shared-events</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>mk.ukim.finki.examscheduler</groupId>
+                <groupId>mk.ukim.finki.examscheduling</groupId>
                 <artifactId>shared-dtos</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>mk.ukim.finki.examscheduler</groupId>
+                <groupId>mk.ukim.finki.examscheduling</groupId>
                 <artifactId>shared-security</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>mk.ukim.finki.examscheduler</groupId>
+                <groupId>mk.ukim.finki.examscheduling</groupId>
                 <artifactId>shared-testing</artifactId>
                 <version>${project.version}</version>
                 <scope>test</scope>
@@ -295,10 +355,10 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
             </plugin>
-          <!--  <plugin>
-                <groupId>com.github.gantsign.maven</groupId>
-                <artifactId>ktlint-maven-plugin</artifactId>
-            </plugin>-->
+            <!--  <plugin>
+                  <groupId>com.github.gantsign.maven</groupId>
+                  <artifactId>ktlint-maven-plugin</artifactId>
+              </plugin>-->
         </plugins>
     </build>
 

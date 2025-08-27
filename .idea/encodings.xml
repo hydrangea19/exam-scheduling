@@ -28,6 +28,8 @@
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/kotlin" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/test-mod/src/main/kotlin" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/test-mod/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/user-management-service/src/main/kotlin" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/user-management-service/src/main/resources" charset="UTF-8" />
   </component>

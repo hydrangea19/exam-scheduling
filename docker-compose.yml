@@ -9,10 +9,12 @@ volumes:
   consul_data:
   kafka_data:
   zookeeper_data:
+  keycloak_data:
 
 services:
-
-  # POSTGRES
+  # =============================================================================
+  # Database - PostgreSQL
+  # =============================================================================
   postgres:
     image: postgres:15.5-alpine
     container_name: exam-scheduler-postgres-dev
@@ -26,16 +28,68 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init-dev.sql:/docker-entrypoint-initdb.d/init-dev.sql
+      - ./docker/postgres/init-dev-v2.sql:/docker-entrypoint-initdb.d/init-dev-v2.sql
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d exam_scheduler_dev"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d exam_scheduler_dev" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # CONSUL
+  # =============================================================================
+  # Authentication & Authorization - Keycloak
+  # =============================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.4
+    container_name: exam-scheduler-keycloak-dev
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+      - "8443:8443"
+    environment:
+      # Admin user for Keycloak console
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # Database configuration - using our existing PostgreSQL
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/exam_scheduler_dev
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KC_DB_SCHEMA: keycloak
+
+      # Development configuration
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+
+      # Logging
+      KC_LOG_LEVEL: INFO
+      KC_LOG_CONSOLE_COLOR: true
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./docker/keycloak/import:/opt/keycloak/data/import
+    networks:
+      - exam-scheduler-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - start-dev
+      - --import-realm
+    healthcheck:
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: http://localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3;timeout --preserve-status 1 cat <&3 | grep -m 1 status | grep -m 1 UP" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # =============================================================================
+  # Service Discovery - Consul
+  # =============================================================================
   consul:
     image: consul:1.17.0
     container_name: exam-scheduler-consul-dev
@@ -60,13 +114,14 @@ services:
       -ui 
       -log-level=INFO
     healthcheck:
-      test: ["CMD", "consul", "members"]
+      test: [ "CMD", "consul", "members" ]
       interval: 10s
       timeout: 3s
       retries: 3
 
-
-  # KAFKA
+  # =============================================================================
+  # Message Broker - Kafka
+  # =============================================================================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: exam-scheduler-zookeeper-dev
@@ -81,7 +136,7 @@ services:
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      test: [ "CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -110,13 +165,14 @@ services:
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092" ]
       interval: 10s
       timeout: 5s
       retries: 3
 
-
-  #REDIS
+  # =============================================================================
+  # Caching - Redis
+  # =============================================================================
   redis:
     image: redis:7.2.4-alpine
     container_name: exam-scheduler-redis-dev
@@ -127,13 +183,16 @@ services:
     networks:
       - exam-scheduler-dev
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 3
 
+  # =============================================================================
+  # Development Tools
+  # =============================================================================
 
-  # DEV TOOLS
+  # Database Admin Tool
   pgadmin:
     image: dpage/pgadmin4:8.2
     container_name: exam-scheduler-pgadmin-dev
@@ -150,7 +209,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # KAFKA UI
+  # Kafka UI
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: exam-scheduler-kafka-ui-dev
@@ -167,7 +226,41 @@ services:
       kafka:
         condition: service_healthy
 
-  # REDIS COMMANDER
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: exam-scheduler-kafka-init-dev
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - exam-scheduler-dev
+    command: |
+      bash -c "
+      echo 'Creating Kafka topics for exam scheduling system...'
+      
+      # Wait for Kafka to be fully ready
+      kafka-topics --bootstrap-server kafka:29092 --list
+      
+      # Create topics for each domain context
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic exam-session-events
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic preference-management-events  
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic scheduling-events
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic publishing-events
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic external-integration-events
+      
+      # Create topics for cross-service communication
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic system-notifications
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic audit-events
+      
+      # Create dead letter topics
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic dead-letter-queue
+      
+      echo 'Created topics:'
+      kafka-topics --bootstrap-server kafka:29092 --list
+      echo 'Kafka topics initialization complete.'
+      "
+
+  # Redis Commander
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: exam-scheduler-redis-ui-dev
