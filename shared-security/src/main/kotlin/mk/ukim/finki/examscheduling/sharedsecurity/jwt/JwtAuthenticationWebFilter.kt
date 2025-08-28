@@ -21,7 +21,14 @@ class JwtAuthenticationWebFilter(
 
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
         val path = exchange.request.path.value()
-        if (isPublicPath(path)) {
+        val method = exchange.request.method
+
+        if (method?.name() == "OPTIONS") {
+            logger.info("JWT Filter - Skipping OPTIONS request for CORS")
+            return chain.filter(exchange)
+        }
+
+        if (isAuthPath(path) || isPublicPath(path)) {
             return chain.filter(exchange)
         }
 
@@ -77,12 +84,29 @@ class JwtAuthenticationWebFilter(
     private fun isPublicPath(path: String): Boolean {
         val publicPaths = listOf(
             "/api/auth/",
+            "/api/auth",
             "/api/test/ping",
             "/actuator/",
             "/api/gateway/"
         )
         return publicPaths.any { publicPath -> path.startsWith(publicPath) }
     }
+
+    private fun isAuthPath(path: String): Boolean {
+        val authPaths = listOf(
+            "/api/auth/login",
+            "/api/auth/refresh",
+            "/api/auth/logout",
+            "/api/auth/validate",
+            "/api/auth/me"
+        )
+        val isAuth = authPaths.any { authPath -> path.startsWith(authPath) }
+        if (isAuth) {
+            logger.info("JWT Filter - Path '$path' identified as auth path")
+        }
+        return isAuth
+    }
+
 
     private fun handleUnauthorized(exchange: ServerWebExchange): Mono<Void> {
         val response = exchange.response
