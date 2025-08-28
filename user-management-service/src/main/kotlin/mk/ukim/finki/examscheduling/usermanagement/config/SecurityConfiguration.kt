@@ -32,6 +32,7 @@ class SecurityConfiguration(
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/api/test/ping").permitAll()
                     .requestMatchers("/actuator/**").permitAll()
+                    .requestMatchers("/api/test/axon/**").permitAll()
 
                     .requestMatchers("/api/test/test-hybrid-authentication").permitAll()
                     .requestMatchers("/api/test/test-user-sync-stats").permitAll()
