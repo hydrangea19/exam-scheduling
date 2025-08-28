@@ -4,6 +4,7 @@ import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtAuthenticationWebFilte
 import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenService
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder
 import org.springframework.security.config.web.server.ServerHttpSecurity
@@ -11,6 +12,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain
 
 @Configuration
 @EnableWebFluxSecurity
+@Order(1)
 class SecurityConfiguration(
     private val jwtTokenService: JwtTokenService
 ) {
@@ -21,10 +23,13 @@ class SecurityConfiguration(
             .csrf { it.disable() }
             .httpBasic { it.disable() }
             .formLogin { it.disable() }
+            .cors { }
             .authorizeExchange { exchanges ->
                 exchanges
                     // Public endpoints
-                    .pathMatchers("/api/auth/**").permitAll() // User management authentication
+                    .pathMatchers("/api/auth/login").permitAll()
+                    .pathMatchers("/api/auth/refresh").permitAll()
+                    .pathMatchers("/api/auth/logout").permitAll()
                     .pathMatchers("/test/**").permitAll() // Test endpoints
                     .pathMatchers("/api/gateway/ping").permitAll()
                     .pathMatchers("/api/gateway/auth-status").permitAll() // Gateway status check
