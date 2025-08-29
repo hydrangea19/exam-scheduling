@@ -10,6 +10,7 @@ volumes:
   kafka_data:
   zookeeper_data:
   keycloak_data:
+  axonserver_data:
 
 services:
   # =============================================================================
@@ -187,6 +188,30 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+
+
+  # =============================================================================
+  # Event Store & Message Router - Axon Server
+  # =============================================================================
+  axonserver:
+    image: axoniq/axonserver:4.6.9
+    container_name: exam-scheduler-axonserver-dev
+    restart: unless-stopped
+    ports:
+      - "8024:8024" # GRPC port for applications
+      - "8124:8124" # HTTP port for dashboard
+    volumes:
+      - axonserver_data:/axonserver
+    environment:
+      AXONSERVER_STANDALONE: "true"
+      AXONSERVER_NAME: "exam-scheduler-axonserver"
+    networks:
+      - exam-scheduler-dev
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8124/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # =============================================================================
   # Development Tools

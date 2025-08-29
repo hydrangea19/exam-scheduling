@@ -2,16 +2,24 @@ package mk.ukim.finki.examscheduling.usermanagement.service
 
 import mk.ukim.finki.examscheduling.sharedsecurity.dto.keycloak.KeycloakUserInfo
 import mk.ukim.finki.examscheduling.usermanagement.domain.User
+import mk.ukim.finki.examscheduling.usermanagement.domain.command.*
+import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.SyncResult
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.UserSyncStatistics
 import mk.ukim.finki.examscheduling.usermanagement.domain.enums.UserRole
+import mk.ukim.finki.examscheduling.usermanagement.query.UserView
+import mk.ukim.finki.examscheduling.usermanagement.query.queries.FindUserByIdQuery
 import mk.ukim.finki.examscheduling.usermanagement.repository.UserRepository
+import org.axonframework.commandhandling.gateway.CommandGateway
+import org.axonframework.queryhandling.QueryGateway
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Instant
 
 @Service
 class UserSyncService(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val commandGateway: CommandGateway,
+    private val queryGateway: QueryGateway
 ) {
     private val logger = LoggerFactory.getLogger(UserSyncService::class.java)
 
@@ -45,8 +53,25 @@ class UserSyncService(
             role = role,
             active = true
         )
+        val savedUser = userRepository.save(newUser)
 
-        return userRepository.save(newUser)
+        try {
+            val createUserCommand = CreateUserCommand(
+                userId = savedUser.id.toString(),
+                email = email,
+                firstName = firstName,
+                lastName = lastName,
+                middleName = null,
+                role = role,
+                passwordHash = null
+            )
+            commandGateway.sendAndWait<Any>(createUserCommand)
+            logger.info("User created in event store: {} with ID: {}", email, savedUser.id)
+
+        } catch (e: Exception) {
+            logger.error("Failed to create user in event store for email: {}, ID: {}", email, savedUser.id, e)
+        }
+        return savedUser
     }
 
     private fun updateExistingUser(existingUser: User, keycloakUserInfo: KeycloakUserInfo): User {
@@ -64,7 +89,6 @@ class UserSyncService(
                 "Updating existing user from Keycloak: {} - role: {} -> {}",
                 existingUser.email, existingUser.role, newRole
             )
-
             val updatedUser = existingUser.update(
                 firstName = firstName,
                 lastName = lastName,
@@ -74,11 +98,121 @@ class UserSyncService(
             if (updatedUser.role != newRole) {
                 updatedUser.role = newRole
             }
+            val savedUser = userRepository.save(updatedUser)
 
-            return userRepository.save(updatedUser)
+            try {
+                syncUserWithEventStore(savedUser)
+            } catch (e: Exception) {
+                logger.error("Failed to sync user update with event store: {}", savedUser.email, e)
+            }
+            return savedUser
         } else {
             logger.debug("No updates needed for user: {}", existingUser.email)
+
+            try {
+                ensureUserExistsInEventStore(existingUser)
+            } catch (e: Exception) {
+                logger.error("Failed to ensure user exists in event store: {}", existingUser.email, e)
+            }
             return existingUser
+        }
+    }
+
+    private fun ensureUserExistsInEventStore(user: User) {
+        try {
+            val userView = queryGateway.query(
+                FindUserByIdQuery(user.id.toString()),
+                UserView::class.java
+            ).get()
+
+            if (userView == null) {
+                logger.info("User {} not found in event store, creating...", user.email)
+
+                val createUserCommand = CreateUserCommand(
+                    userId = user.id.toString(),
+                    email = user.email,
+                    firstName = user.firstName,
+                    lastName = user.lastName,
+                    middleName = user.middleName,
+                    role = user.role,
+                    passwordHash = user.passwordHash
+                )
+
+                commandGateway.sendAndWait<Any>(createUserCommand)
+                logger.info("User {} created in event store", user.email)
+            } else {
+                logger.debug("User {} already exists in event store", user.email)
+            }
+        } catch (e: Exception) {
+            logger.error("Error ensuring user exists in event store: {}", user.email, e)
+            throw e
+        }
+    }
+
+    /**
+     * Synchronizes an updated traditional User with the event store
+     */
+    private fun syncUserWithEventStore(user: User) {
+        try {
+            ensureUserExistsInEventStore(user)
+
+            val userView = queryGateway.query(
+                FindUserByIdQuery(user.id.toString()),
+                UserView::class.java
+            ).get()
+
+            if (userView != null) {
+                if (userView.firstName != user.firstName ||
+                    userView.lastName != user.lastName ||
+                    userView.middleName != user.middleName) {
+
+                    val updateProfileCommand = UpdateUserProfileCommand(
+                        userId = user.id.toString(),
+                        firstName = user.firstName,
+                        lastName = user.lastName,
+                        middleName = user.middleName
+                    )
+
+                    commandGateway.sendAndWait<Any>(updateProfileCommand)
+                    logger.debug("User profile updated in event store: {}", user.email)
+                }
+
+                if (userView.role != user.role) {
+                    val changeRoleCommand = ChangeUserRoleCommand(
+                        userId = user.id.toString(),
+                        newRole = user.role,
+                        previousRole = userView.role,
+                        changedBy = user.id.toString(),
+                        reason = "Synchronized from Keycloak"
+                    )
+
+                    commandGateway.sendAndWait<Any>(changeRoleCommand)
+                    logger.debug("User role updated in event store: {} -> {}", userView.role, user.role)
+                }
+
+                if (userView.active != user.active) {
+                    if (user.active) {
+                        val activateCommand = ActivateUserCommand(
+                            userId = user.id.toString(),
+                            activatedBy = user.id.toString(),
+                            reason = "Synchronized from Keycloak"
+                        )
+                        commandGateway.sendAndWait<Any>(activateCommand)
+                    } else {
+                        val deactivateCommand = DeactivateUserCommand(
+                            userId = user.id.toString(),
+                            deactivatedBy = user.id.toString(),
+                            reason = "Synchronized from Keycloak"
+                        )
+                        commandGateway.sendAndWait<Any>(deactivateCommand)
+                    }
+                    logger.debug("User activation status updated in event store: {}", user.active)
+                }
+            }
+
+        } catch (e: Exception) {
+            logger.error("Error synchronizing user with event store: {}", user.email, e)
+            throw e
         }
     }
 
@@ -167,6 +301,40 @@ class UserSyncService(
                 null
             }
         }
+    }
+
+    fun syncExistingUsersToEventStore(): SyncResult {
+        logger.info("Starting batch sync of existing users to event store")
+
+        val allUsers = userRepository.findAll()
+        var successCount = 0
+        var errorCount = 0
+        val errors = mutableListOf<String>()
+
+        for (user in allUsers) {
+            try {
+                ensureUserExistsInEventStore(user)
+                successCount++
+                if (successCount % 10 == 0) {
+                    logger.info("Synced {} users so far...", successCount)
+                }
+            } catch (e: Exception) {
+                errorCount++
+                val errorMsg = "Failed to sync user ${user.email}: ${e.message}"
+                errors.add(errorMsg)
+                logger.error(errorMsg, e)
+            }
+        }
+
+        val result = SyncResult(
+            totalUsers = allUsers.size,
+            successCount = successCount,
+            errorCount = errorCount,
+            errors = errors
+        )
+
+        logger.info("Batch sync completed: {}", result)
+        return result
     }
 
     fun getSyncStatistics(): UserSyncStatistics {

@@ -1,6 +1,7 @@
 package mk.ukim.finki.examscheduling.sharedsecurity.utilities
 
 import mk.ukim.finki.examscheduling.sharedsecurity.domain.UserPrincipal
+import mk.ukim.finki.examscheduling.sharedsecurity.domain.dto.CurrentUserDetails
 import org.springframework.security.core.context.SecurityContextHolder
 
 object SecurityUtils {
@@ -54,4 +55,17 @@ object SecurityUtils {
 
     fun requireAdmin(): UserPrincipal = requireRole("ADMIN")
     fun requireProfessor(): UserPrincipal = requireRole("PROFESSOR")
+
+    //fun getCurrentUserId(): UUID? = SecurityUtilsExtensions.getCurrentUserId()
+
+    fun getCurrentUserDetails(): CurrentUserDetails? = SecurityUtilsExtensions.getCurrentUserDetails()
+
+    fun isCurrentUserAdmin(): Boolean = SecurityUtilsExtensions.isCurrentUserAdmin()
+
+    fun isCurrentUserProfessor(): Boolean = SecurityUtilsExtensions.isCurrentUserProfessor()
+
+
+    fun isCurrentUserStudent(): Boolean = SecurityUtilsExtensions.isCurrentUserStudent()
+
+    fun hasAnyRole(vararg roles: String): Boolean = SecurityUtilsExtensions.hasAnyRole(*roles)
 }

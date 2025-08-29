@@ -1,0 +1,10 @@
+package mk.ukim.finki.examscheduling.usermanagement.query.queries
+
+import java.time.Instant
+
+data class FindUsersCreatedBetweenQuery(
+    val startDate: Instant,
+    val endDate: Instant,
+    val page: Int = 0,
+    val size: Int = 20
+)
