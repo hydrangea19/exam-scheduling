@@ -5,7 +5,7 @@ import java.util.*
 
 data class RecordLoginAttemptCommand(
     @TargetAggregateIdentifier
-    val userId: UUID,
+    val userId: String,
     val successful: Boolean,
     val ipAddress: String,
     val userAgent: String,

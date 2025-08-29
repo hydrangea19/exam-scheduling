@@ -39,7 +39,7 @@ class AxonTestController(
         logger.info("Creating enhanced user via Axon: {}", request.email)
 
         return try {
-            val userId = UUID.randomUUID()
+            val userId = UUID.randomUUID().toString()
             val command = CreateUserCommand(
                 userId = userId,
                 email = request.email,
@@ -79,7 +79,7 @@ class AxonTestController(
         logger.info("Querying user by ID: {}", userId)
 
         return try {
-            val query = FindUserByIdQuery(UUID.fromString(userId))
+            val query = FindUserByIdQuery(userId)
             val user: UserView? = queryGateway.query(query, UserView::class.java).get()
 
             if (user != null) {
@@ -344,7 +344,7 @@ class AxonTestController(
 
         return try {
             val query = FindUserActivitySummaryQuery(
-                userId = UUID.fromString(userId),
+                userId = userId,
                 includeLoginHistory = true,
                 includeRoleHistory = true
             )

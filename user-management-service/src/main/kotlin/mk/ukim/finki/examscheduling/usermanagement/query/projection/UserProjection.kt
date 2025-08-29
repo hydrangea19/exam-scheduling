@@ -22,24 +22,24 @@ class UserProjection(
     fun on(event: UserCreatedEvent) {
         logger.info("Projecting UserCreatedEvent for user: {}", event.email)
 
-        try {
-            val userView = UserView.create(
-                userId = event.userId,
-                email = event.email,
-                firstName = event.firstName,
-                lastName = event.lastName,
-                middleName = event.middleName,
-                role = event.role,
-                hasPassword = event.hasPassword,
-                createdAt = event.createdAt
-            )
-
-            userViewRepository.save(userView)
-            logger.info("UserView created successfully for user: {}", event.email)
-        } catch (e: Exception) {
-            logger.error("Failed to project UserCreatedEvent for user: {}", event.email, e)
-            throw e
+        if (userViewRepository.existsById(event.userId) || userViewRepository.existsByEmail(event.email)) {
+            logger.info("UserView already exists for user: {}, skipping creation", event.email)
+            return
         }
+
+        val userView = UserView.create(
+            userId = event.userId,
+            email = event.email,
+            firstName = event.firstName,
+            lastName = event.lastName,
+            middleName = event.middleName,
+            role = event.role,
+            hasPassword = event.hasPassword,
+            createdAt = event.createdAt
+        )
+
+        userViewRepository.save(userView)
+        logger.info("UserView created successfully for user: {}", event.email)
     }
 
     @EventHandler

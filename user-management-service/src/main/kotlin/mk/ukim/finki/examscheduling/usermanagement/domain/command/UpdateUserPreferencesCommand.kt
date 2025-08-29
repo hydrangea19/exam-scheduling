@@ -5,7 +5,7 @@ import java.util.*
 
 data class UpdateUserPreferencesCommand(
     @TargetAggregateIdentifier
-    val userId: UUID,
+    val userId: String,
     val notificationPreferences: Map<String, Boolean>,
     val uiPreferences: Map<String, String>
 )

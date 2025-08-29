@@ -1,10 +1,9 @@
 package mk.ukim.finki.examscheduling.usermanagement.domain.event
 
 import java.time.Instant
-import java.util.*
 
 data class UserProfileUpdatedEvent(
-    val userId: UUID,
+    val userId: String,
     val previousFirstName: String,
     val previousLastName: String,
     val previousMiddleName: String?,

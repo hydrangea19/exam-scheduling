@@ -2,10 +2,9 @@ package mk.ukim.finki.examscheduling.usermanagement.query
 
 import mk.ukim.finki.examscheduling.usermanagement.domain.enums.UserRole
 import java.time.Instant
-import java.util.*
 
 data class UserActivitySummary(
-    val userId: UUID,
+    val userId: String,
     val email: String,
     val fullName: String,
     val role: UserRole,
@@ -15,12 +14,12 @@ data class UserActivitySummary(
     val lastSuccessfulLogin: Instant?,
     val failedLoginAttempts: Int,
     val lastRoleChange: Instant?,
-    val lastRoleChangedBy: UUID?,
+    val lastRoleChangedBy: String?,
     val keycloakUserId: String?,
     val lastKeycloakSync: Instant?,
     val notificationPreferences: Map<String, Any>,
     val uiPreferences: Map<String, Any>,
     val deactivationReason: String?,
-    val deactivatedBy: UUID?,
+    val deactivatedBy: String?,
     val deactivatedAt: Instant?
 )

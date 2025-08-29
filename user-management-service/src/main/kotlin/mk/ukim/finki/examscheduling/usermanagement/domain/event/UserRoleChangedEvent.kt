@@ -2,13 +2,12 @@ package mk.ukim.finki.examscheduling.usermanagement.domain.event
 
 import mk.ukim.finki.examscheduling.usermanagement.domain.enums.UserRole
 import java.time.Instant
-import java.util.*
 
 data class UserRoleChangedEvent(
-    val userId: UUID,
+    val userId: String,
     val previousRole: UserRole,
     val newRole: UserRole,
-    val changedBy: UUID,
+    val changedBy: String,
     val reason: String?,
     val changedAt: Instant = Instant.now()
 )

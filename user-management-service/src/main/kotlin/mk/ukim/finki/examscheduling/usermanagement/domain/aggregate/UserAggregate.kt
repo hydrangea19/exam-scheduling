@@ -11,13 +11,12 @@ import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
 import org.slf4j.LoggerFactory
 import java.time.Instant
-import java.util.*
 
 @Aggregate
 class UserAggregate {
 
     @AggregateIdentifier
-    private lateinit var userId: UUID
+    private lateinit var userId: String
 
     private lateinit var email: String
     private lateinit var firstName: String
@@ -454,7 +453,7 @@ class UserAggregate {
         return email.contains("@") && email.contains(".") && email.length > 5
     }
 
-    fun getUserId(): UUID = userId
+    fun getUserId(): String = userId
     fun getEmail(): String = email
     fun getFirstName(): String = firstName
     fun getLastName(): String = lastName

@@ -24,7 +24,7 @@ import java.util.*
 data class UserView(
     @Id
     @Column(name = "user_id")
-    val userId: UUID,
+    val userId: String,
 
     @Column(name = "email", nullable = false, unique = true, length = 255)
     val email: String,
@@ -79,13 +79,13 @@ data class UserView(
     val lastRoleChange: Instant? = null,
 
     @Column(name = "last_role_changed_by")
-    val lastRoleChangedBy: UUID? = null,
+    val lastRoleChangedBy: String? = null,
 
     @Column(name = "deactivation_reason", length = 500)
     val deactivationReason: String? = null,
 
     @Column(name = "deactivated_by")
-    val deactivatedBy: UUID? = null,
+    val deactivatedBy: String? = null,
 
     @Column(name = "deactivated_at")
     val deactivatedAt: Instant? = null,
@@ -99,7 +99,7 @@ data class UserView(
     val viewUpdatedAt: Instant = Instant.now()
 ) {
     constructor() : this(
-        userId = UUID.randomUUID(),
+        userId = UUID.randomUUID().toString(),
         email = "",
         firstName = "",
         lastName = "",
@@ -119,7 +119,7 @@ data class UserView(
         }
 
         fun create(
-            userId: UUID,
+            userId: String,
             email: String,
             firstName: String,
             lastName: String,
@@ -163,7 +163,7 @@ data class UserView(
         )
     }
 
-    fun updateRole(newRole: UserRole, changedBy: UUID, updatedAt: Instant): UserView {
+    fun updateRole(newRole: UserRole, changedBy: String, updatedAt: Instant): UserView {
         return copy(
             role = newRole,
             lastUpdatedAt = updatedAt,
@@ -192,7 +192,7 @@ data class UserView(
         )
     }
 
-    fun deactivate(reason: String, deactivatedBy: UUID, updatedAt: Instant): UserView {
+    fun deactivate(reason: String, deactivatedBy: String, updatedAt: Instant): UserView {
         return copy(
             active = false,
             lastUpdatedAt = updatedAt,

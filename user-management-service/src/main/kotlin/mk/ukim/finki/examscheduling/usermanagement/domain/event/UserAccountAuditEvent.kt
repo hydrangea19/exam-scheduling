@@ -1,12 +1,11 @@
 package mk.ukim.finki.examscheduling.usermanagement.domain.event
 
 import java.time.Instant
-import java.util.*
 
 data class UserAccountAuditEvent(
-    val userId: UUID,
+    val userId: String,
     val action: String,
-    val performedBy: UUID,
+    val performedBy: String,
     val details: Map<String, Any>,
     val timestamp: Instant = Instant.now()
 )

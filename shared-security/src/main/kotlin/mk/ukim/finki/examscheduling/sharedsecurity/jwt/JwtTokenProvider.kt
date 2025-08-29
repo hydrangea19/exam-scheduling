@@ -2,7 +2,6 @@ package mk.ukim.finki.examscheduling.sharedsecurity.jwt
 
 import io.jsonwebtoken.*
 import io.jsonwebtoken.jackson.io.JacksonDeserializer
-import io.jsonwebtoken.jackson.io.JacksonSerializer
 import io.jsonwebtoken.security.Keys
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -38,7 +37,6 @@ class JwtTokenProvider {
             .setIssuedAt(Date.from(now))
             .setExpiration(Date.from(expiry))
             .signWith(getSigningKey(), SignatureAlgorithm.HS512)
-            .serializeToJsonWith(JacksonSerializer())
             .compact()
     }
 
@@ -52,7 +50,6 @@ class JwtTokenProvider {
             .setIssuedAt(Date.from(now))
             .setExpiration(Date.from(expiry))
             .signWith(getSigningKey(), SignatureAlgorithm.HS512)
-            .serializeToJsonWith(JacksonSerializer())
             .compact()
     }
 

@@ -9,11 +9,10 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 import java.time.Instant
-import java.util.*
 
 
 @Repository
-interface UserViewRepository : JpaRepository<UserView, UUID> {
+interface UserViewRepository : JpaRepository<UserView, String> {
 
     fun findByEmail(email: String): UserView?
 
@@ -101,11 +100,11 @@ interface UserViewRepository : JpaRepository<UserView, UUID> {
     ): List<UserView>
 
     @Query(
-        ("SELECT u FROM UserView u " +
-                "WHERE (:email IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :email, '%'))) " +
-                "AND (:fullName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :fullName, '%'))) " +
-                "AND (:role IS NULL OR u.role = :role) " +
-                "AND (:active IS NULL OR u.active = :active)")
+        ("SELECT u FROM UserView u\n" +
+                "    WHERE (:email IS NULL OR CAST(u.email AS text) LIKE :email)\n" +
+                "    AND (:fullName IS NULL OR CAST(u.fullName AS text) LIKE :fullName)\n" +
+                "    AND (:role IS NULL OR u.role = :role)\n" +
+                "    AND (:active IS NULL OR u.active = :active)")
     )
     fun findUsersWithFilters(
         @Param("email") email: String?,
