@@ -6,6 +6,7 @@ import mk.ukim.finki.examscheduling.sharedsecurity.jwt.ServiceToServiceSecurityC
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -29,6 +30,8 @@ class SecurityConfiguration(
             .cors { it.configurationSource(corsConfigurationSource) }
             .authorizeHttpRequests { auth ->
                 auth
+                    .requestMatchers(HttpMethod.OPTIONS).permitAll()
+
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/api/test/ping").permitAll()
                     .requestMatchers("/actuator/**").permitAll()

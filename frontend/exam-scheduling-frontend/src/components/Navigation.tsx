@@ -1,11 +1,11 @@
 import React from 'react';
-import { Navbar, Nav, NavDropdown, Container } from 'react-bootstrap';
-import { LinkContainer } from "react-router-bootstrap";
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import {Container, Nav, Navbar, NavDropdown} from 'react-bootstrap';
+import {LinkContainer} from "react-router-bootstrap";
+import {useAuth} from '../context/AuthContext';
+import {useNavigate} from 'react-router-dom';
 
 const Navigation: React.FC = () => {
-    const { user, logout } = useAuth();
+    const {user, logout} = useAuth();
     const navigate = useNavigate();
 
     const handleLogout = async () => {
@@ -21,7 +21,7 @@ const Navigation: React.FC = () => {
         const role = user?.role;
 
         switch (role) {
-            case 'ADMINISTRATOR':
+            case 'ADMIN':
                 return (
                     <>
                         <LinkContainer to="/dashboard">
@@ -35,9 +35,12 @@ const Navigation: React.FC = () => {
                                 <NavDropdown.Item>Schedule Management</NavDropdown.Item>
                             </LinkContainer>
                             <LinkContainer to="/user-management">
-                                <NavDropdown.Item>User Management</NavDropdown.Item>
+                                <NavDropdown.Item>
+                                    <i className="bi bi-people me-2"></i>
+                                    User Management
+                                </NavDropdown.Item>
                             </LinkContainer>
-                            <NavDropdown.Divider />
+                            <NavDropdown.Divider/>
                             <LinkContainer to="/reports">
                                 <NavDropdown.Item>Reports</NavDropdown.Item>
                             </LinkContainer>
@@ -69,6 +72,7 @@ const Navigation: React.FC = () => {
                     </>
                 );
 
+            case 'STUDENT':
             default:
                 return (
                     <>
@@ -92,7 +96,7 @@ const Navigation: React.FC = () => {
                     </Navbar.Brand>
                 </LinkContainer>
 
-                <Navbar.Toggle aria-controls="basic-navbar-nav" />
+                <Navbar.Toggle aria-controls="basic-navbar-nav"/>
 
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="me-auto">
@@ -103,9 +107,9 @@ const Navigation: React.FC = () => {
                         <NavDropdown
                             title={
                                 <span>
-                  <i className="bi bi-person-circle me-1"></i>
+                                    <i className="bi bi-person-circle me-1"></i>
                                     {user?.fullName || user?.email || 'User'}
-                </span>
+                                </span>
                             }
                             id="user-dropdown"
                             align="end"
@@ -115,7 +119,7 @@ const Navigation: React.FC = () => {
                                 <div className="fw-bold">{user?.email}</div>
                                 <div className="small text-muted">Role: {user?.role}</div>
                             </NavDropdown.Header>
-                            <NavDropdown.Divider />
+                            <NavDropdown.Divider/>
                             <LinkContainer to="/profile">
                                 <NavDropdown.Item>
                                     <i className="bi bi-person me-2"></i>
@@ -128,7 +132,7 @@ const Navigation: React.FC = () => {
                                     Settings
                                 </NavDropdown.Item>
                             </LinkContainer>
-                            <NavDropdown.Divider />
+                            <NavDropdown.Divider/>
                             <NavDropdown.Item onClick={handleLogout}>
                                 <i className="bi bi-box-arrow-right me-2"></i>
                                 Sign Out

@@ -241,41 +241,31 @@ class UserQueryHandler(
     fun handle(query: GetUserStatisticsQuery): UserStatisticsResult {
         logger.debug("Handling GetUserStatisticsQuery")
 
-        try {
-            val statistics = userViewRepository.getUserStatistics()
+        val row = userViewRepository.getUserStatistics() as Array<*>
 
-            val row = userViewRepository.getUserStatistics() as Array<*>
-            val activeUsers = (row[0] as Number).toLong()
-            val inactiveUsers = (row[1] as Number).toLong()
-            val usersWithPassword = (row[2] as Number).toLong()
-            val keycloakUsers = (row[3] as Number).toLong()
-            val usersWithLogin = (row[4] as Number).toLong()
+        val activeUsers = (row[0] as Number).toLong()
+        val inactiveUsers = (row[1] as Number).toLong()
+        val usersWithPassword = (row[2] as Number).toLong()
+        val keycloakUsers = (row[3] as Number).toLong()
+        val usersWithLogin = (row[4] as Number).toLong()
 
-            val roleBreakdown = if (query.includeRoleBreakdown) {
-                userViewRepository.countActiveUsersByRole()
-                    .associate { row ->
-                        val role = row[0] as UserRole
-                        val count = (row[1] as Number).toLong()
-                        role.name to count
-                    }
-            } else {
-                emptyMap()
-            }
-
-            return UserStatisticsResult(
-                totalUsers = activeUsers + inactiveUsers,
-                activeUsers = activeUsers,
-                inactiveUsers = inactiveUsers,
-                usersWithPassword = usersWithPassword,
-                keycloakUsers = keycloakUsers,
-                usersWithRecentLogin = usersWithLogin,
-                roleBreakdown = roleBreakdown,
-                generatedAt = Instant.now()
-            )
-        } catch (e: Exception) {
-            logger.error("Failed to generate user statistics", e)
-            throw e
+        val roleBreakdown = if (query.includeRoleBreakdown) {
+            userViewRepository.countActiveUsersByRole()
+                .associate { r -> (r[0] as UserRole).name to (r[1] as Number).toLong() }
+        } else {
+            emptyMap()
         }
+
+        return UserStatisticsResult(
+            totalUsers = activeUsers + inactiveUsers,
+            activeUsers = activeUsers,
+            inactiveUsers = inactiveUsers,
+            usersWithPassword = usersWithPassword,
+            keycloakUsers = keycloakUsers,
+            usersWithRecentLogin = usersWithLogin,
+            roleBreakdown = roleBreakdown,
+            generatedAt = Instant.now()
+        )
     }
 
     @QueryHandler

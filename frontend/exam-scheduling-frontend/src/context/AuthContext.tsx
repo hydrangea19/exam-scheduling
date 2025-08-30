@@ -1,14 +1,5 @@
-import React, {
-    createContext,
-    useContext,
-    useState,
-    useEffect,
-    type ReactNode
-} from 'react';
-import authService, {
-    type AuthenticationRequest,
-    type UserInfo
-} from '../services/authService';
+import React, {createContext, type ReactNode, useContext, useEffect, useState} from 'react';
+import authService, {type AuthenticationRequest, type UserInfo} from '../services/authService';
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -73,7 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const login = async (credentials: AuthenticationRequest) => {
         try {
-            await authService.login(credentials);
+            await authService.login({ ...credentials});
 
             setIsAuthenticated(true);
 

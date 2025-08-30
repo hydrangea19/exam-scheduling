@@ -1,15 +1,16 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import {BrowserRouter as Router, Navigate, Route, Routes} from 'react-router-dom';
+import {AuthProvider} from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navigation from './components/Navigation';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
+import UserManagement from './components/UserManagement';
+//import UserProfile from './components/UserProfile';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
-// Placeholder components for future implementation
-const ComingSoon: React.FC<{ title: string }> = ({ title }) => (
+const ComingSoon: React.FC<{ title: string }> = ({title}) => (
     <div className="container mt-4">
         <div className="text-center">
             <div className="display-1 text-muted mb-4">
@@ -23,10 +24,9 @@ const ComingSoon: React.FC<{ title: string }> = ({ title }) => (
     </div>
 );
 
-// Layout component for authenticated pages
-const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({children}) => (
     <>
-        <Navigation />
+        <Navigation/>
         <main>{children}</main>
     </>
 );
@@ -38,7 +38,7 @@ function App() {
                 <div className="App">
                     <Routes>
                         {/* Public routes */}
-                        <Route path="/login" element={<Login />} />
+                        <Route path="/login" element={<Login/>}/>
 
                         {/* Protected routes */}
                         <Route
@@ -46,19 +46,19 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <Dashboard />
+                                        <Dashboard/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
                         />
 
-                        {/* Administrator routes */}
+                        {/* Administrator routes - Updated to use ADMIN role */}
                         <Route
                             path="/exam-sessions"
                             element={
-                                <ProtectedRoute requiredRole="ADMINISTRATOR">
+                                <ProtectedRoute requiredRole="ADMIN">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Exam Session Management" />
+                                        <ComingSoon title="Exam Session Management"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -67,20 +67,21 @@ function App() {
                         <Route
                             path="/schedule-management"
                             element={
-                                <ProtectedRoute requiredRole="ADMINISTRATOR">
+                                <ProtectedRoute requiredRole="ADMIN">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Schedule Management" />
+                                        <ComingSoon title="Schedule Management"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
                         />
 
+                        {/* User Management - Now implemented */}
                         <Route
                             path="/user-management"
                             element={
-                                <ProtectedRoute requiredRole="ADMINISTRATOR">
+                                <ProtectedRoute requiredRole="ADMIN">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="User Management" />
+                                        <UserManagement/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -89,9 +90,9 @@ function App() {
                         <Route
                             path="/reports"
                             element={
-                                <ProtectedRoute requiredRole="ADMINISTRATOR">
+                                <ProtectedRoute requiredRole="ADMIN">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Reports & Analytics" />
+                                        <ComingSoon title="Reports & Analytics"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -103,7 +104,7 @@ function App() {
                             element={
                                 <ProtectedRoute requiredRole="PROFESSOR">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="My Preferences" />
+                                        <ComingSoon title="My Preferences"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -114,7 +115,7 @@ function App() {
                             element={
                                 <ProtectedRoute requiredRole="PROFESSOR">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="My Schedule" />
+                                        <ComingSoon title="My Schedule"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -125,7 +126,7 @@ function App() {
                             element={
                                 <ProtectedRoute requiredRole="PROFESSOR">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Schedule Feedback" />
+                                        <ComingSoon title="Schedule Feedback"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -137,7 +138,7 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Preference Management" />
+                                        <ComingSoon title="Preference Management"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -148,7 +149,7 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Published Schedules" />
+                                        <ComingSoon title="Published Schedules"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -159,37 +160,38 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Schedule Viewer" />
+                                        <ComingSoon title="Schedule Viewer"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
                         />
 
-                        <Route
+                        {/* Profile routes - Now implemented */}
+                        {/*<Route
                             path="/profile"
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="User Profile" />
+                                        <UserProfile />
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
-                        />
+                        />*/}
 
                         <Route
                             path="/settings"
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Settings" />
+                                        <ComingSoon title="Settings"/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
                         />
 
                         {/* Default redirects */}
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
+                        <Route path="*" element={<Navigate to="/dashboard" replace/>}/>
                     </Routes>
                 </div>
             </Router>

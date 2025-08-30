@@ -1,15 +1,15 @@
 import React from 'react';
-import { Container, Row, Col, Card, Badge, Alert } from 'react-bootstrap';
-import { useAuth } from '../context/AuthContext';
+import {Alert, Badge, Card, Col, Container, Row} from 'react-bootstrap';
+import {useAuth} from '../context/AuthContext';
 
 const Dashboard: React.FC = () => {
-    const { user } = useAuth();
+    const {user} = useAuth();
 
     const getRoleBasedContent = () => {
         const role = user?.role;
 
         switch (role) {
-            case 'ADMINISTRATOR':
+            case 'ADMIN':
                 return (
                     <Row>
                         <Col md={4} className="mb-4">
@@ -20,7 +20,8 @@ const Dashboard: React.FC = () => {
                                     </div>
                                     <Card.Title>Exam Sessions</Card.Title>
                                     <Card.Text>
-                                        Manage and configure exam periods, set deadlines, and control the scheduling workflow.
+                                        Manage and configure exam periods, set deadlines, and control the scheduling
+                                        workflow.
                                     </Card.Text>
                                     <Badge bg="info">Admin Only</Badge>
                                 </Card.Body>
@@ -35,7 +36,8 @@ const Dashboard: React.FC = () => {
                                     </div>
                                     <Card.Title>Schedule Management</Card.Title>
                                     <Card.Text>
-                                        Generate schedules, review professor feedback, and make administrative adjustments.
+                                        Generate schedules, review professor feedback, and make administrative
+                                        adjustments.
                                     </Card.Text>
                                     <Badge bg="success">Active</Badge>
                                 </Card.Body>
@@ -52,7 +54,7 @@ const Dashboard: React.FC = () => {
                                     <Card.Text>
                                         Manage user accounts, roles, and permissions for the system.
                                     </Card.Text>
-                                    <Badge bg="warning">Admin Only</Badge>
+                                    <Badge bg="primary">Implemented</Badge>
                                 </Card.Body>
                             </Card>
                         </Col>
@@ -91,13 +93,15 @@ const Dashboard: React.FC = () => {
                                     </Card.Title>
                                     <div className="text-muted">
                                         <p className="mb-2">
-                                            <small><i className="bi bi-dot"></i> No recent activity</small>
+                                            <small><i className="bi bi-dot"></i> User Management system is
+                                                active</small>
                                         </p>
                                         <p className="mb-2">
-                                            <small><i className="bi bi-dot"></i> System is ready for configuration</small>
+                                            <small><i className="bi bi-dot"></i> Ready for user administration</small>
                                         </p>
                                         <p className="mb-0">
-                                            <small><i className="bi bi-dot"></i> Welcome to the Exam Scheduling System</small>
+                                            <small><i className="bi bi-dot"></i> Welcome to the Exam Scheduling
+                                                System</small>
                                         </p>
                                     </div>
                                 </Card.Body>
@@ -166,6 +170,7 @@ const Dashboard: React.FC = () => {
                     </Row>
                 );
 
+            case 'STUDENT':
             default:
                 return (
                     <Row>
@@ -204,8 +209,8 @@ const Dashboard: React.FC = () => {
                     <i className="bi bi-info-circle me-2"></i>
                     System Status
                 </Alert.Heading>
-                This is a minimal frontend setup for the Exam Scheduling System.
-                Business logic features will be implemented in Phase 2 of the development process.
+                User Management system is now integrated with the production API.
+                {user?.role === 'ADMIN' && ' You can now manage users through the User Management section.'}
             </Alert>
 
             {getRoleBasedContent()}

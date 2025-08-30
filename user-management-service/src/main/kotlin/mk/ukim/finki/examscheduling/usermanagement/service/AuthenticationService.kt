@@ -11,6 +11,7 @@ import mk.ukim.finki.examscheduling.usermanagement.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.Duration
 import java.util.*
 
 @Service
@@ -146,7 +147,7 @@ class AuthenticationService(
         val accessToken = keycloakResponse.accessToken!!
 
         return try {
-            keycloakClientService.getUserInfo(accessToken).block() ?: run {
+            keycloakClientService.getUserInfo(accessToken).block(Duration.ofSeconds(5)) ?: run {
                 logger.warn("Could not fetch user info from Keycloak, extracting from token")
                 KeycloakUserInfo(
                     preferredUsername = "unknown",

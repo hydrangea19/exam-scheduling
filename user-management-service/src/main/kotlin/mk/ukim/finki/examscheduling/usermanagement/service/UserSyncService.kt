@@ -65,7 +65,7 @@ class UserSyncService(
                 role = role,
                 passwordHash = null
             )
-            commandGateway.sendAndWait<Any>(createUserCommand)
+            commandGateway.send<Any>(createUserCommand)
             logger.info("User created in event store: {} with ID: {}", email, savedUser.id)
 
         } catch (e: Exception) {
@@ -138,7 +138,7 @@ class UserSyncService(
                     passwordHash = user.passwordHash
                 )
 
-                commandGateway.sendAndWait<Any>(createUserCommand)
+                commandGateway.send<Any>(createUserCommand)
                 logger.info("User {} created in event store", user.email)
             } else {
                 logger.debug("User {} already exists in event store", user.email)
@@ -164,7 +164,8 @@ class UserSyncService(
             if (userView != null) {
                 if (userView.firstName != user.firstName ||
                     userView.lastName != user.lastName ||
-                    userView.middleName != user.middleName) {
+                    userView.middleName != user.middleName
+                ) {
 
                     val updateProfileCommand = UpdateUserProfileCommand(
                         userId = user.id.toString(),
@@ -173,7 +174,7 @@ class UserSyncService(
                         middleName = user.middleName
                     )
 
-                    commandGateway.sendAndWait<Any>(updateProfileCommand)
+                    commandGateway.send<Any>(updateProfileCommand)
                     logger.debug("User profile updated in event store: {}", user.email)
                 }
 
@@ -186,7 +187,7 @@ class UserSyncService(
                         reason = "Synchronized from Keycloak"
                     )
 
-                    commandGateway.sendAndWait<Any>(changeRoleCommand)
+                    commandGateway.send<Any>(changeRoleCommand)
                     logger.debug("User role updated in event store: {} -> {}", userView.role, user.role)
                 }
 
@@ -197,14 +198,14 @@ class UserSyncService(
                             activatedBy = user.id.toString(),
                             reason = "Synchronized from Keycloak"
                         )
-                        commandGateway.sendAndWait<Any>(activateCommand)
+                        commandGateway.send<Any>(activateCommand)
                     } else {
                         val deactivateCommand = DeactivateUserCommand(
                             userId = user.id.toString(),
                             deactivatedBy = user.id.toString(),
                             reason = "Synchronized from Keycloak"
                         )
-                        commandGateway.sendAndWait<Any>(deactivateCommand)
+                        commandGateway.send<Any>(deactivateCommand)
                     }
                     logger.debug("User activation status updated in event store: {}", user.active)
                 }

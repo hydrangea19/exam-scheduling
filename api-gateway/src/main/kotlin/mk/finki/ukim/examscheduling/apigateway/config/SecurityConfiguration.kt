@@ -5,6 +5,7 @@ import mk.ukim.finki.examscheduling.sharedsecurity.jwt.JwtTokenService
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.annotation.Order
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder
 import org.springframework.security.config.web.server.ServerHttpSecurity
@@ -27,6 +28,7 @@ class SecurityConfiguration(
             .authorizeExchange { exchanges ->
                 exchanges
                     // Public endpoints
+                    .pathMatchers(HttpMethod.OPTIONS).permitAll()
                     .pathMatchers("/api/auth/login").permitAll()
                     .pathMatchers("/api/auth/refresh").permitAll()
                     .pathMatchers("/api/auth/logout").permitAll()

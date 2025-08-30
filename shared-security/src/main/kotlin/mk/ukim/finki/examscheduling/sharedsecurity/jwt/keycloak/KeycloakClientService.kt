@@ -50,6 +50,7 @@ class KeycloakClientService(
         formData.add("client_secret", clientSecret)
         formData.add("username", username)
         formData.add("password", password)
+        formData.add("scope", "openid email profile");
 
         return keycloakWebClient
             .post()
