@@ -1,4 +1,3 @@
-/*
 package mk.ukim.finki.examscheduling.preferencemanagement.service
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
@@ -26,7 +25,7 @@ class UserManagementClient(
         private const val RETRY_NAME = "user-management-service"
         private const val TIME_LIMITER_NAME = "user-management-service"
     }
-s
+
     @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "pingFallback")
     @Retry(name = RETRY_NAME)
     @TimeLimiter(name = TIME_LIMITER_NAME)
@@ -155,4 +154,4 @@ s
             )
         )
     }
-}*/
+}
