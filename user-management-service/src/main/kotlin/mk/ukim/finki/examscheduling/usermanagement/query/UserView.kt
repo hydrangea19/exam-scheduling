@@ -30,7 +30,7 @@ data class UserView(
     val email: String,
 
     @Column(name = "first_name", nullable = false, length = 100)
-    val firstName: String,
+    var firstName: String,
 
     @Column(name = "last_name", nullable = false, length = 100)
     val lastName: String,
@@ -43,13 +43,13 @@ data class UserView(
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
-    val role: UserRole,
+    var role: UserRole,
 
     @Column(name = "has_password", nullable = false)
     val hasPassword: Boolean = false,
 
     @Column(name = "active", nullable = false)
-    val active: Boolean = true,
+    var active: Boolean = true,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant,
@@ -70,10 +70,10 @@ data class UserView(
     val failedLoginAttempts: Int = 0,
 
     @Column(name = "notification_preferences", columnDefinition = "TEXT")
-    val notificationPreferences: String? = null,
+    var notificationPreferences: String? = null,
 
     @Column(name = "ui_preferences", columnDefinition = "TEXT")
-    val uiPreferences: String? = null,
+    var uiPreferences: String? = null,
 
     @Column(name = "last_role_change")
     val lastRoleChange: Instant? = null,

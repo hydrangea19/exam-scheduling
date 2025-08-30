@@ -10,28 +10,27 @@ import mk.ukim.finki.examscheduling.usermanagement.domain.command.*
 import mk.ukim.finki.examscheduling.usermanagement.domain.dto.users.*
 import mk.ukim.finki.examscheduling.usermanagement.domain.enums.UserRole
 import mk.ukim.finki.examscheduling.usermanagement.domain.exceptions.UserDomainException
-import mk.ukim.finki.examscheduling.usermanagement.query.UserPageResponse
-import mk.ukim.finki.examscheduling.usermanagement.query.UserStatisticsResult
-import mk.ukim.finki.examscheduling.usermanagement.query.UserView
-import mk.ukim.finki.examscheduling.usermanagement.query.queries.*
+import mk.ukim.finki.examscheduling.usermanagement.query.repository.UserViewRepository
 import org.axonframework.commandhandling.gateway.CommandGateway
-import org.axonframework.queryhandling.QueryGateway
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.Authentication
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
+import java.time.Instant
 import java.util.*
 
 
 @RestController
 @RequestMapping("/api/users")
 @Validated
-@CrossOrigin(origins = ["http://localhost:3000", "http://localhost:5173"])
 class UserController(
     private val commandGateway: CommandGateway,
-    private val queryGateway: QueryGateway
+    private val userViewRepository: UserViewRepository
 ) {
 
     private val logger = LoggerFactory.getLogger(UserController::class.java)
@@ -62,7 +61,6 @@ class UserController(
             commandGateway.sendAndWait<Any>(command)
             logger.info("User created successfully: {} with ID: {}", request.email, userId)
 
-
             return ResponseEntity.accepted().body(mapOf("userId" to userId))
         } catch (e: UserDomainException) {
             logger.warn("User creation validation failed: {}", e.message)
@@ -85,10 +83,7 @@ class UserController(
         logger.debug("Fetching user by ID: {} requested by: {}", userId, authentication.name)
 
         return try {
-            val userView = queryGateway.query(
-                FindUserByIdQuery(userId),
-                UserView::class.java
-            ).get()
+            val userView = userViewRepository.findById(userId).orElse(null)
 
             if (userView != null) {
                 ResponseEntity.ok(UserResponse.fromUserView(userView))
@@ -111,10 +106,7 @@ class UserController(
         logger.debug("Fetching user by email: {} requested by: {}", email, authentication.name)
 
         return try {
-            val userView = queryGateway.query(
-                FindUserByEmailQuery(email),
-                UserView::class.java
-            ).get()
+            val userView = userViewRepository.findByEmail(email)
 
             if (userView != null) {
                 ResponseEntity.ok(UserResponse.fromUserView(userView))
@@ -140,20 +132,32 @@ class UserController(
         logger.debug("Fetching all users - page: {}, size: {} by: {}", page, size, authentication.name)
 
         return try {
-            val query = FindAllUsersQuery(page, size, sortBy, sortDirection)
-            val usersPage = queryGateway.query(
-                query,
-                UserPageResponse::class.java
-            ).get()
+            val sort = Sort.by(
+                if (sortDirection.uppercase() == "DESC") Sort.Direction.DESC else Sort.Direction.ASC,
+                sortBy
+            )
+            val pageable = PageRequest.of(page, size, sort)
+            val userPage = userViewRepository.findAll(pageable)
 
-            ResponseEntity.ok(PagedUserResponse.fromUserPageResponse(usersPage))
+            val response = PagedUserResponse(
+                users = userPage.content.map { UserResponse.fromUserView(it) },
+                page = userPage.number,
+                size = userPage.size,
+                totalPages = userPage.totalPages,
+                totalElements = userPage.totalElements,
+                first = userPage.isFirst,
+                last = userPage.isLast,
+                empty = userPage.isEmpty
+            )
+
+            ResponseEntity.ok(response)
         } catch (e: Exception) {
             logger.error("Failed to fetch all users", e)
             throw InternalServerErrorException("Failed to fetch users")
         }
     }
 
-    // ===== USER SEARCH & FILTERING =====
+    // ===== USER SEARCH & FILTERING  =====
 
     @GetMapping("/search")
     @PreAuthorize("hasRole('ADMIN')")
@@ -173,16 +177,32 @@ class UserController(
 
         return try {
             val userRole = role?.let { UserRole.valueOf(it.uppercase()) }
-            val query = SearchUsersWithFiltersQuery(
-                email?.lowercase(), fullName?.lowercase(), userRole, active, page, size, sortBy, sortDirection
+            val sort = Sort.by(
+                if (sortDirection.uppercase() == "DESC") Sort.Direction.DESC else Sort.Direction.ASC,
+                sortBy
+            )
+            val pageable = PageRequest.of(page, size, sort)
+
+            val userPage = userViewRepository.findUsersWithFilters(
+                email = email?.lowercase(),
+                fullName = fullName?.lowercase(),
+                role = userRole,
+                active = active,
+                pageable = pageable
             )
 
-            val usersPage = queryGateway.query(
-                query,
-                UserPageResponse::class.java
-            ).get()
+            val response = PagedUserResponse(
+                users = userPage.content.map { UserResponse.fromUserView(it) },
+                page = userPage.number,
+                size = userPage.size,
+                totalPages = userPage.totalPages,
+                totalElements = userPage.totalElements,
+                first = userPage.isFirst,
+                last = userPage.isLast,
+                empty = userPage.isEmpty
+            )
 
-            ResponseEntity.ok(PagedUserResponse.fromUserPageResponse(usersPage))
+            ResponseEntity.ok(response)
         } catch (e: IllegalArgumentException) {
             throw ValidationException("Invalid role: $role. Valid roles: ${UserRole.values().joinToString(", ")}")
         } catch (e: Exception) {
@@ -205,13 +225,30 @@ class UserController(
 
         return try {
             val userRole = UserRole.valueOf(role.uppercase())
-            val query = FindUsersByRoleQuery(userRole, activeOnly, page, size)
-            val usersPage = queryGateway.query(
-                query,
-                UserPageResponse::class.java
-            ).get()
+            val pageable = PageRequest.of(page, size)
 
-            ResponseEntity.ok(PagedUserResponse.fromUserPageResponse(usersPage))
+            val userPage = if (activeOnly) {
+                userViewRepository.findByRoleOrderByFullNameAsc(userRole, pageable)
+            } else {
+                val allUsers = userViewRepository.findByRole(userRole)
+                val startIndex = (page * size).coerceAtMost(allUsers.size)
+                val endIndex = ((page + 1) * size).coerceAtMost(allUsers.size)
+                val pageUsers = if (startIndex < allUsers.size) allUsers.subList(startIndex, endIndex) else emptyList()
+                PageImpl(pageUsers, pageable, allUsers.size.toLong())
+            }
+
+            val response = PagedUserResponse(
+                users = userPage.content.map { UserResponse.fromUserView(it) },
+                page = userPage.number,
+                size = userPage.size,
+                totalPages = userPage.totalPages,
+                totalElements = userPage.totalElements,
+                first = userPage.isFirst,
+                last = userPage.isLast,
+                empty = userPage.isEmpty
+            )
+
+            ResponseEntity.ok(response)
         } catch (e: IllegalArgumentException) {
             throw ValidationException("Invalid role: $role. Valid roles: ${UserRole.values().joinToString(", ")}")
         } catch (e: Exception) {
@@ -243,11 +280,9 @@ class UserController(
             commandGateway.sendAndWait<Any>(command)
             logger.info("User profile updated successfully: {}", userId)
 
-            // Return updated user
-            val userView = queryGateway.query(
-                FindUserByIdQuery(userId),
-                UserView::class.java
-            ).get() ?: throw IllegalStateException("User not found after update")
+            val userView = userViewRepository.findById(userId).orElseThrow {
+                IllegalStateException("User not found after update")
+            }
 
             ResponseEntity.ok(UserResponse.fromUserView(userView))
         } catch (e: UserDomainException) {
@@ -279,11 +314,9 @@ class UserController(
             commandGateway.sendAndWait<Any>(command)
             logger.info("User email changed successfully: {}", userId)
 
-            // Return updated user
-            val userView = queryGateway.query(
-                FindUserByIdQuery(userId),
-                UserView::class.java
-            ).get() ?: throw IllegalStateException("User not found after email change")
+            val userView = userViewRepository.findById(userId).orElseThrow {
+                IllegalStateException("User not found after email change")
+            }
 
             ResponseEntity.ok(UserResponse.fromUserView(userView))
         } catch (e: UserDomainException) {
@@ -295,7 +328,7 @@ class UserController(
         }
     }
 
-    // ===== USER ROLE MANAGEMENT =====
+    // ===== USER ROLE MANAGEMENT  =====
 
     @PutMapping("/{userId}/role")
     @PreAuthorize("hasRole('ADMIN')")
@@ -325,10 +358,9 @@ class UserController(
             commandGateway.sendAndWait<Any>(command)
             logger.info("User role changed successfully: {} from {} to {}", userId, previousRole, newRole)
 
-            val userView = queryGateway.query(
-                FindUserByIdQuery(userId),
-                UserView::class.java
-            ).get() ?: throw IllegalStateException("User not found after role change")
+            val userView = userViewRepository.findById(userId).orElseThrow {
+                IllegalStateException("User not found after role change")
+            }
 
             ResponseEntity.ok(UserResponse.fromUserView(userView))
         } catch (e: IllegalArgumentException) {
@@ -342,7 +374,7 @@ class UserController(
         }
     }
 
-    // ===== USER ACTIVATION/DEACTIVATION =====
+    // ===== USER ACTIVATION/DEACTIVATION  =====
 
     @PutMapping("/{userId}/activate")
     @PreAuthorize("hasRole('ADMIN')")
@@ -365,10 +397,9 @@ class UserController(
             commandGateway.sendAndWait<Any>(command)
             logger.info("User activated successfully: {}", userId)
 
-            val userView = queryGateway.query(
-                FindUserByIdQuery(userId),
-                UserView::class.java
-            ).get() ?: throw IllegalStateException("User not found after activation")
+            val userView = userViewRepository.findById(userId).orElseThrow {
+                IllegalStateException("User not found after activation")
+            }
 
             ResponseEntity.ok(UserResponse.fromUserView(userView))
         } catch (e: UserDomainException) {
@@ -403,10 +434,9 @@ class UserController(
             commandGateway.sendAndWait<Any>(command)
             logger.info("User deactivated successfully: {}", userId)
 
-            val userView = queryGateway.query(
-                FindUserByIdQuery(userId),
-                UserView::class.java
-            ).get() ?: throw IllegalStateException("User not found after deactivation")
+            val userView = userViewRepository.findById(userId).orElseThrow {
+                IllegalStateException("User not found after deactivation")
+            }
 
             ResponseEntity.ok(UserResponse.fromUserView(userView))
         } catch (e: UserDomainException) {
@@ -418,7 +448,7 @@ class UserController(
         }
     }
 
-    // ===== USER PREFERENCES =====
+    // ===== USER PREFERENCES  =====
 
     @PutMapping("/{userId}/preferences")
     @PreAuthorize("hasRole('ADMIN') or (hasRole('PROFESSOR') and @securityService.canAccessUser(authentication, #userId))")
@@ -440,10 +470,9 @@ class UserController(
             commandGateway.sendAndWait<Any>(command)
             logger.info("User preferences updated successfully: {}", userId)
 
-            val userView = queryGateway.query(
-                FindUserByIdQuery(userId),
-                UserView::class.java
-            ).get() ?: throw IllegalStateException("User not found after preferences update")
+            val userView = userViewRepository.findById(userId).orElseThrow {
+                IllegalStateException("User not found after preferences update")
+            }
 
             ResponseEntity.ok(UserResponse.fromUserView(userView))
         } catch (e: UserDomainException) {
@@ -455,7 +484,7 @@ class UserController(
         }
     }
 
-    // ===== CURRENT USER =====
+    // ===== CURRENT USER  =====
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
@@ -466,10 +495,7 @@ class UserController(
             val currentUserId = SecurityUtils.getCurrentUserId()
                 ?: throw SecurityException("Unable to determine current user ID")
 
-            val userView = queryGateway.query(
-                FindUserByIdQuery(currentUserId),
-                UserView::class.java
-            ).get()
+            val userView = userViewRepository.findById(currentUserId).orElse(null)
 
             if (userView != null) {
                 ResponseEntity.ok(UserResponse.fromUserView(userView))
@@ -515,7 +541,7 @@ class UserController(
         return updateUserPreferences(currentUserId, request, authentication)
     }
 
-    // ===== STATISTICS & REPORTING =====
+    // ===== STATISTICS & REPORTING  =====
 
     @GetMapping("/statistics")
     @PreAuthorize("hasRole('ADMIN')")
@@ -523,17 +549,59 @@ class UserController(
         logger.debug("Fetching user statistics by: {}", authentication.name)
 
         return try {
-            val query = GetUserStatisticsQuery(
-                includeRoleBreakdown = true,
-                includeLoginStats = true,
-                includeKeycloakStats = true
+            val row = userViewRepository.getUserStatistics() as Array<*>
+
+            val activeUsers = (row[0] as Number).toLong()
+            val inactiveUsers = (row[1] as Number).toLong()
+            val usersWithPassword = (row[2] as Number).toLong()
+            val keycloakUsers = (row[3] as Number).toLong()
+            val usersWithLogin = (row[4] as Number).toLong()
+
+            val roleBreakdown = userViewRepository.countActiveUsersByRole()
+                .associate { r -> (r[0] as UserRole).name to (r[1] as Number).toLong() }
+
+            val response = UserStatisticsResponse(
+                totalUsers = activeUsers + inactiveUsers,
+                activeUsers = activeUsers,
+                inactiveUsers = inactiveUsers,
+                usersWithPassword = usersWithPassword,
+                keycloakUsers = keycloakUsers,
+                usersWithRecentLogin = usersWithLogin,
+                roleBreakdown = roleBreakdown,
+                generatedAt = Instant.now()
             )
 
-            val stats = queryGateway.query(query, UserStatisticsResult::class.java).get()
-            ResponseEntity.ok(UserStatisticsResponse.fromUserStatisticsResult(stats))
+            ResponseEntity.ok(response)
         } catch (e: Exception) {
             logger.error("Failed to fetch user statistics", e)
             throw InternalServerErrorException("Failed to fetch user statistics")
+        }
+    }
+
+    // ===== DEBUG ENDPOINT  =====
+
+    @GetMapping("/direct-db-test")
+    @PreAuthorize("hasRole('ADMIN')")
+    fun testDirectDb(): ResponseEntity<Any> {
+        return try {
+            val users = userViewRepository.findAll()
+            ResponseEntity.ok(
+                mapOf(
+                    "status" to "SUCCESS",
+                    "message" to "Direct database access working",
+                    "count" to users.size,
+                    "sample_users" to users.take(3).map { "${it.email} - ${it.fullName}" },
+                    "method" to "Direct Repository Access"
+                )
+            )
+        } catch (e: Exception) {
+            logger.error("Direct DB test failed", e)
+            ResponseEntity.status(500).body(
+                mapOf(
+                    "status" to "ERROR",
+                    "message" to "DB Error: ${e.message}"
+                )
+            )
         }
     }
 }

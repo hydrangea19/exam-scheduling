@@ -1,3 +1,4 @@
+/*
 package mk.ukim.finki.examscheduling.usermanagement.config
 
 import org.springframework.context.annotation.Bean
@@ -13,7 +14,7 @@ class CorsConfig {
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration().apply {
             allowCredentials = true
-            allowedOriginPatterns = listOf("http://localhost:*", "http://127.0.0.1:*", "http://localhost:5174")
+            allowedOriginPatterns = listOf("http://localhost:*", "http://127.0.0.1:*", "http://localhost:5174", "http://localhost:5173")
             allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
             allowedHeaders = listOf("*")
             exposedHeaders = listOf("Authorization", "Content-Type", "X-Requested-With")
@@ -24,4 +25,4 @@ class CorsConfig {
         source.registerCorsConfiguration("/**", configuration)
         return source
     }
-}
+}*/
