@@ -1,4 +1,4 @@
-lpackage mk.ukim.finki.examscheduling.externalintegration.domain.dtos.accreditation
+package mk.ukim.finki.examscheduling.externalintegration.domain.dtos.accreditation
 
 data class AccreditationStudyProgramDto(
     val code: String,

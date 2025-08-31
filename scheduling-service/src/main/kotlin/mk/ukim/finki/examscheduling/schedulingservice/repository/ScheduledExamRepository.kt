@@ -10,6 +10,8 @@ import java.util.*
 @Repository
 interface ScheduledExamRepository : JpaRepository<ScheduledExam, UUID> {
 
+    fun findByScheduledExamId(scheduledExamId: String): ScheduledExam?
+
     fun findByExamDate(examDate: LocalDate): List<ScheduledExam>
 
     fun findByExamSessionScheduleId(examSessionScheduleId: UUID): List<ScheduledExam>
