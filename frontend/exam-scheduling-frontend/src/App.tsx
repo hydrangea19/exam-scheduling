@@ -6,7 +6,9 @@ import Navigation from './components/Navigation';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import UserManagement from './components/UserManagement';
-//import UserProfile from './components/UserProfile';
+import ProfessorPreferences from './components/ProfessorPreferences';
+import AdminExamSessions from './components/AdminExamSessions';
+import AdminPreferenceOverview from './components/AdminPreferenceOverview';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
@@ -58,7 +60,7 @@ function App() {
                             element={
                                 <ProtectedRoute requiredRole="ADMIN">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Exam Session Management"/>
+                                        <AdminExamSessions/> {/* Updated to use actual component */}
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -104,7 +106,7 @@ function App() {
                             element={
                                 <ProtectedRoute requiredRole="PROFESSOR">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="My Preferences"/>
+                                        <ProfessorPreferences/> {/* Updated to use actual component */}
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -138,7 +140,7 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Preference Management"/>
+                                        <AdminPreferenceOverview/> {/* Updated to use actual component */}
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }

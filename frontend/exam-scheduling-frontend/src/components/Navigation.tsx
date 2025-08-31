@@ -29,10 +29,16 @@ const Navigation: React.FC = () => {
                         </LinkContainer>
                         <NavDropdown title="Management" id="admin-dropdown">
                             <LinkContainer to="/exam-sessions">
-                                <NavDropdown.Item>Exam Sessions</NavDropdown.Item>
+                                <NavDropdown.Item>
+                                    <i className="bi bi-calendar-event me-2"></i>
+                                    Exam Sessions
+                                </NavDropdown.Item>
                             </LinkContainer>
                             <LinkContainer to="/schedule-management">
-                                <NavDropdown.Item>Schedule Management</NavDropdown.Item>
+                                <NavDropdown.Item>
+                                    <i className="bi bi-table me-2"></i>
+                                    Schedule Management
+                                </NavDropdown.Item>
                             </LinkContainer>
                             <LinkContainer to="/user-management">
                                 <NavDropdown.Item>
@@ -42,14 +48,23 @@ const Navigation: React.FC = () => {
                             </LinkContainer>
                             <NavDropdown.Divider/>
                             <LinkContainer to="/reports">
-                                <NavDropdown.Item>Reports</NavDropdown.Item>
+                                <NavDropdown.Item>
+                                    <i className="bi bi-graph-up me-2"></i>
+                                    Reports
+                                </NavDropdown.Item>
                             </LinkContainer>
                         </NavDropdown>
                         <LinkContainer to="/preferences">
-                            <Nav.Link>Preferences</Nav.Link>
+                            <Nav.Link>
+                                <i className="bi bi-heart me-2"></i>
+                                Preference Overview
+                            </Nav.Link>
                         </LinkContainer>
                         <LinkContainer to="/published-schedules">
-                            <Nav.Link>Published Schedules</Nav.Link>
+                            <Nav.Link>
+                                <i className="bi bi-calendar-check me-2"></i>
+                                Published Schedules
+                            </Nav.Link>
                         </LinkContainer>
                     </>
                 );
@@ -61,13 +76,28 @@ const Navigation: React.FC = () => {
                             <Nav.Link>Dashboard</Nav.Link>
                         </LinkContainer>
                         <LinkContainer to="/my-preferences">
-                            <Nav.Link>My Preferences</Nav.Link>
+                            <Nav.Link>
+                                <i className="bi bi-heart me-2"></i>
+                                My Preferences
+                            </Nav.Link>
                         </LinkContainer>
                         <LinkContainer to="/my-schedule">
-                            <Nav.Link>My Schedule</Nav.Link>
+                            <Nav.Link>
+                                <i className="bi bi-calendar-check me-2"></i>
+                                My Schedule
+                            </Nav.Link>
                         </LinkContainer>
                         <LinkContainer to="/feedback">
-                            <Nav.Link>Schedule Feedback</Nav.Link>
+                            <Nav.Link>
+                                <i className="bi bi-chat-text me-2"></i>
+                                Schedule Feedback
+                            </Nav.Link>
+                        </LinkContainer>
+                        <LinkContainer to="/published-schedules">
+                            <Nav.Link>
+                                <i className="bi bi-calendar me-2"></i>
+                                View Schedules
+                            </Nav.Link>
                         </LinkContainer>
                     </>
                 );
@@ -80,7 +110,10 @@ const Navigation: React.FC = () => {
                             <Nav.Link>Dashboard</Nav.Link>
                         </LinkContainer>
                         <LinkContainer to="/schedules">
-                            <Nav.Link>View Schedules</Nav.Link>
+                            <Nav.Link>
+                                <i className="bi bi-calendar-week me-2"></i>
+                                View Schedules
+                            </Nav.Link>
                         </LinkContainer>
                     </>
                 );
@@ -92,6 +125,7 @@ const Navigation: React.FC = () => {
             <Container>
                 <LinkContainer to="/dashboard">
                     <Navbar.Brand className="fw-bold">
+                        <i className="bi bi-calendar-event me-2"></i>
                         Exam Scheduling System
                     </Navbar.Brand>
                 </LinkContainer>
