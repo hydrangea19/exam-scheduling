@@ -9,6 +9,7 @@ import UserManagement from './components/UserManagement';
 import ProfessorPreferences from './components/ProfessorPreferences';
 import AdminExamSessions from './components/AdminExamSessions';
 import AdminPreferenceOverview from './components/AdminPreferenceOverview';
+import SchedulingManagement from './components/SchedulingManagement'; // Add this import
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
@@ -54,30 +55,30 @@ function App() {
                             }
                         />
 
-                        {/* Administrator routes - Updated to use ADMIN role */}
+                        {/* Administrator routes */}
                         <Route
                             path="/exam-sessions"
                             element={
                                 <ProtectedRoute requiredRole="ADMIN">
                                     <AuthenticatedLayout>
-                                        <AdminExamSessions/> {/* Updated to use actual component */}
+                                        <AdminExamSessions/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
                         />
 
+                        {/* Updated to use actual SchedulingManagement component */}
                         <Route
                             path="/schedule-management"
                             element={
                                 <ProtectedRoute requiredRole="ADMIN">
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Schedule Management"/>
+                                        <SchedulingManagement/> {/* Now using actual component */}
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
                         />
 
-                        {/* User Management - Now implemented */}
                         <Route
                             path="/user-management"
                             element={
@@ -106,7 +107,7 @@ function App() {
                             element={
                                 <ProtectedRoute requiredRole="PROFESSOR">
                                     <AuthenticatedLayout>
-                                        <ProfessorPreferences/> {/* Updated to use actual component */}
+                                        <ProfessorPreferences/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -140,7 +141,7 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <AdminPreferenceOverview/> {/* Updated to use actual component */}
+                                        <AdminPreferenceOverview/>
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
@@ -167,18 +168,6 @@ function App() {
                                 </ProtectedRoute>
                             }
                         />
-
-                        {/* Profile routes - Now implemented */}
-                        {/*<Route
-                            path="/profile"
-                            element={
-                                <ProtectedRoute>
-                                    <AuthenticatedLayout>
-                                        <UserProfile />
-                                    </AuthenticatedLayout>
-                                </ProtectedRoute>
-                            }
-                        />*/}
 
                         <Route
                             path="/settings"

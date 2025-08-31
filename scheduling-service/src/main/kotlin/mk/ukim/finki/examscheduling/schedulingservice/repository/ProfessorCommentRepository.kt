@@ -9,6 +9,12 @@ import java.util.*
 @Repository
 interface ProfessorCommentRepository : JpaRepository<ProfessorComment, UUID> {
 
+    fun findByCommentId(commentId: String): ProfessorComment?
+    fun findByProfessorIdAndExamSessionScheduleId(
+        professorId: String,
+        scheduleId: java.util.UUID
+    ): List<ProfessorComment>
+
     fun findByExamSessionScheduleId(examSessionScheduleId: UUID): List<ProfessorComment>
 
     @Query("SELECT pc FROM ProfessorComment pc WHERE pc.status = 'SUBMITTED' ORDER BY pc.submittedAt ASC")

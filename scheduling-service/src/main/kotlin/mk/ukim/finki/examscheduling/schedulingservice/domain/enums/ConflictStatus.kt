@@ -1,9 +1,9 @@
 package mk.ukim.finki.examscheduling.schedulingservice.domain.enums
 
-enum class CommentStatus {
-    SUBMITTED,
+enum class ConflictStatus {
+    DETECTED,
     UNDER_REVIEW,
-    APPROVED,
-    REJECTED,
-    RESOLVED
+    RESOLVED,
+    IGNORED,
+    DEFERRED
 }

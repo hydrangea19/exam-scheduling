@@ -1,6 +1,8 @@
 package mk.ukim.finki.examscheduling.schedulingservice.repository
 
 import mk.ukim.finki.examscheduling.schedulingservice.domain.ExamSessionSchedule
+import mk.ukim.finki.examscheduling.schedulingservice.domain.ScheduledExamInfo
+import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.ScheduleStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
@@ -8,6 +10,9 @@ import java.util.*
 
 @Repository
 interface ExamSessionScheduleRepository : JpaRepository<ExamSessionSchedule, UUID> {
+
+    fun findByAcademicYearAndExamSession(academicYear: String, examSession: String): List<ExamSessionSchedule>
+    fun findByStatus(status: ScheduleStatus): List<ExamSessionSchedule>
 
     fun findByExamSessionPeriodId(examSessionPeriodId: String): ExamSessionSchedule
 
@@ -25,4 +30,5 @@ interface ExamSessionScheduleRepository : JpaRepository<ExamSessionSchedule, UUI
     """, nativeQuery = true
     )
     fun getScheduleStatistics(): Map<String, Any>
+
 }

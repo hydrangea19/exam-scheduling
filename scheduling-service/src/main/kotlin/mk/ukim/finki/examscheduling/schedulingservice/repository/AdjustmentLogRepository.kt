@@ -9,6 +9,8 @@ import java.util.*
 @Repository
 interface AdjustmentLogRepository : JpaRepository<AdjustmentLog, UUID> {
 
+    fun findByAdjustmentId(adjustmentId: String): AdjustmentLog?
+
     fun findByExamSessionScheduleId(examSessionScheduleId: UUID): List<AdjustmentLog>
 
     @Query(

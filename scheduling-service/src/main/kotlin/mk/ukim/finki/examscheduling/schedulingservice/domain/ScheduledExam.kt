@@ -63,5 +63,5 @@ data class ScheduledExam(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "exam_session_schedule_id", nullable = false)
-    val examSessionSchedule: ExamSessionSchedule
+    val examSessionSchedule: ExamSessionSchedule?
 )

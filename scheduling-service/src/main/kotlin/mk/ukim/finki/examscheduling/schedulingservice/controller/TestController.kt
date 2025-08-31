@@ -540,7 +540,7 @@ class TestController @Autowired constructor(
                 professorId = "PROF_001",
                 scheduledExamId = exam1.scheduledExamId,
                 commentText = "The 9 AM time slot might be too early for students. Could we move it to 10 AM?",
-                commentType = CommentType.TIME_CHANGE_REQUEST,
+                commentType = CommentType.TIME_CONFLICT,
                 status = CommentStatus.SUBMITTED,
                 examSessionSchedule = savedSession
             )
@@ -550,7 +550,7 @@ class TestController @Autowired constructor(
                 professorId = "PROF_003",
                 scheduledExamId = exam2.scheduledExamId,
                 commentText = "Lab 101 might be too small for 45 students. Can we get a larger room?",
-                commentType = CommentType.ROOM_CHANGE_REQUEST,
+                commentType = CommentType.TIME_CONFLICT,
                 status = CommentStatus.UNDER_REVIEW,
                 examSessionSchedule = savedSession
             )
