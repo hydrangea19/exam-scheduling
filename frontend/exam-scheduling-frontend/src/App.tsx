@@ -12,6 +12,7 @@ import AdminPreferenceOverview from './components/AdminPreferenceOverview';
 import SchedulingManagement from './components/SchedulingManagement'; // Add this import
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import PublishedSchedules from "./components/PublishedSchedules.tsx";
 
 const ComingSoon: React.FC<{ title: string }> = ({title}) => (
     <div className="container mt-4">
@@ -152,7 +153,7 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <AuthenticatedLayout>
-                                        <ComingSoon title="Published Schedules"/>
+                                        <PublishedSchedules/> {/* Instead of ComingSoon */}
                                     </AuthenticatedLayout>
                                 </ProtectedRoute>
                             }
