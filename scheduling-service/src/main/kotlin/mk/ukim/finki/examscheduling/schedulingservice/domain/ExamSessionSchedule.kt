@@ -30,7 +30,7 @@ data class ExamSessionSchedule(
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    val status: ScheduleStatus = ScheduleStatus.DRAFT,
+    var status: ScheduleStatus = ScheduleStatus.DRAFT,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
@@ -39,10 +39,10 @@ data class ExamSessionSchedule(
     val updatedAt: Instant? = null,
 
     @Column(name = "finalized_at")
-    val finalizedAt: Instant? = null,
+    var finalizedAt: Instant? = null,
 
     @Column(name = "published_at")
-    val publishedAt: Instant? = null,
+    var publishedAt: Instant? = null,
 
     @Version
     val version: Long = 0,

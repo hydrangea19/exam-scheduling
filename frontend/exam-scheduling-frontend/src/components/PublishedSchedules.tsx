@@ -53,6 +53,81 @@ const PublishedSchedules: React.FC = () => {
         return publishingService.getStatusColor(status);
     };
 
+    const handleExportPdf = async (scheduleId: string) => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const blob = await publishingService.exportScheduleToPdf(scheduleId);
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `exam_schedule_${scheduleId.substring(0, 8)}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            setSuccess('PDF downloaded successfully');
+        } catch (err) {
+            setError('Failed to export PDF. Please try again.');
+            console.error('PDF export error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExportExcel = async (scheduleId: string) => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const blob = await publishingService.exportScheduleToExcel(scheduleId);
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `exam_schedule_${scheduleId.substring(0, 8)}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            setSuccess('Excel file downloaded successfully');
+        } catch (err) {
+            setError('Failed to export Excel. Please try again.');
+            console.error('Excel export error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleViewInBrowser = async (scheduleId: string) => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const blob = await publishingService.exportScheduleToPdf(scheduleId);
+            const url = window.URL.createObjectURL(blob);
+
+            // Open PDF in new tab
+            window.open(url, '_blank');
+
+            setSuccess('Schedule opened in new tab');
+
+            // Clean up the URL after a delay
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+            }, 1000);
+        } catch (err) {
+            setError('Failed to open schedule. Please try again.');
+            console.error('View error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Container className="mt-4">
             <Row>
@@ -235,6 +310,50 @@ const PublishedSchedules: React.FC = () => {
                                         </Col>
                                     </Row>
                                 )}
+                                <Row>
+                                    <Col>
+                                        <div className="border-top pt-3">
+                                            <strong className="mb-3 d-block">Export Options:</strong>
+                                            <div className="d-flex gap-2 flex-wrap">
+                                                <Button
+                                                    variant="outline-danger"
+                                                    onClick={() => handleExportPdf(schedule.scheduleId)}
+                                                    disabled={loading}
+                                                    size="sm"
+                                                >
+                                                    {loading ? (
+                                                        <Spinner animation="border" size="sm" className="me-2" />
+                                                    ) : (
+                                                        <i className="bi bi-file-pdf me-2"></i>
+                                                    )}
+                                                    Export PDF
+                                                </Button>
+                                                <Button
+                                                    variant="outline-success"
+                                                    onClick={() => handleExportExcel(schedule.scheduleId)}
+                                                    disabled={loading}
+                                                    size="sm"
+                                                >
+                                                    {loading ? (
+                                                        <Spinner animation="border" size="sm" className="me-2" />
+                                                    ) : (
+                                                        <i className="bi bi-file-excel me-2"></i>
+                                                    )}
+                                                    Export Excel
+                                                </Button>
+                                                <Button
+                                                    variant="outline-primary"
+                                                    onClick={() => handleViewInBrowser(schedule.scheduleId)}
+                                                    disabled={loading}
+                                                    size="sm"
+                                                >
+                                                    <i className="bi bi-eye me-2"></i>
+                                                    View in Browser
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </Col>
+                                </Row>
                             </Card.Body>
                         </Card>
                     </Col>

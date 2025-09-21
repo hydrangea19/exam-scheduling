@@ -4,15 +4,13 @@ import mk.ukim.finki.examscheduling.schedulingservice.domain.*
 import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.AdjustmentStatus
 import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.CommentStatus
 import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.ScheduleStatus
-import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.ViolationSeverity
-import mk.ukim.finki.examscheduling.schedulingservice.service.AdvancedSchedulingService
 import org.axonframework.commandhandling.CommandHandler
 import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.modelling.command.AggregateIdentifier
 import org.axonframework.modelling.command.AggregateLifecycle
+import org.axonframework.modelling.command.TargetAggregateIdentifier
 import org.axonframework.spring.stereotype.Aggregate
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -44,9 +42,8 @@ class ExamSessionScheduleAggregate {
 
     constructor()
 
-    private val logger = LoggerFactory.getLogger(AdvancedSchedulingService::class.java)
+    private val logger = LoggerFactory.getLogger(ExamSessionScheduleAggregate::class.java)
 
-    // === COMMAND HANDLERS ===
 
     @CommandHandler
     constructor(command: CreateExamSessionScheduleCommand) {
@@ -91,15 +88,19 @@ class ExamSessionScheduleAggregate {
     fun handle(command: GenerateDraftScheduleCommand) {
         validateCommandForCurrentStatus(ScheduleStatus.GENERATING)
 
-        val schedulingResult = generateSchedule(
-            courseEnrollmentData = command.courseEnrollmentData,
-            courseAccreditationData = command.courseAccreditationData,
-            professorPreferences = command.professorPreferences,
-            availableRooms = command.availableRooms
+        // Python service will handle the complex scheduling logic
+        // This method now just processes the results from Python service
+        val schedulingResult = SchedulingResult(
+            scheduledExams = command.schedulingResult?.scheduledExams ?: emptyList(),
+            metrics = command.schedulingResult?.metrics ?: createDefaultMetrics(),
+            qualityScore = command.schedulingResult?.qualityScore ?: 0.0,
+            violations = command.schedulingResult?.violations ?: emptyList()
         )
 
+        // Clear existing exams
         scheduledExams.clear()
 
+        // Add new exams from Python service result
         schedulingResult.scheduledExams.forEach { examInfo ->
             AggregateLifecycle.apply(
                 ScheduledExamAddedEvent(
@@ -176,7 +177,12 @@ class ExamSessionScheduleAggregate {
 
         validateExamTimeSlot(command.newExamDate, command.newStartTime, command.newEndTime, command.scheduledExamId)
 
-        val impactAnalysis = analyzeTimeChangeImpact(command.scheduledExamId, command.newExamDate, command.newStartTime, command.newEndTime)
+        val impactAnalysis = analyzeTimeChangeImpact(
+            command.scheduledExamId,
+            command.newExamDate,
+            command.newStartTime,
+            command.newEndTime
+        )
 
         AggregateLifecycle.apply(
             ScheduledExamTimeChangedEvent(
@@ -372,7 +378,6 @@ class ExamSessionScheduleAggregate {
         )
     }
 
-    // === EVENT SOURCING HANDLERS ===
 
     @EventSourcingHandler
     fun on(event: ExamSessionScheduleCreatedEvent) {
@@ -507,7 +512,6 @@ class ExamSessionScheduleAggregate {
         this.version++
     }
 
-    // === BUSINESS LOGIC HELPERS ===
 
     private fun validateCommandForCurrentStatus(vararg allowedStatuses: ScheduleStatus) {
         require(this.status in allowedStatuses) {
@@ -515,7 +519,12 @@ class ExamSessionScheduleAggregate {
         }
     }
 
-    private fun validateExamTimeSlot(examDate: LocalDate, startTime: LocalTime, endTime: LocalTime, excludeExamId: String? = null) {
+    private fun validateExamTimeSlot(
+        examDate: LocalDate,
+        startTime: LocalTime,
+        endTime: LocalTime,
+        excludeExamId: String? = null
+    ) {
         require(examDate.isAfter(startDate.minusDays(1)) && examDate.isBefore(endDate.plusDays(1))) {
             "Exam date must be within the session period ($startDate to $endDate)"
         }
@@ -538,7 +547,12 @@ class ExamSessionScheduleAggregate {
         return start1.isBefore(end2) && start2.isBefore(end1)
     }
 
-    private fun analyzeTimeChangeImpact(examId: String, newDate: LocalDate, newStart: LocalTime, newEnd: LocalTime): TimeChangeImpact {
+    private fun analyzeTimeChangeImpact(
+        examId: String,
+        newDate: LocalDate,
+        newStart: LocalTime,
+        newEnd: LocalTime
+    ): TimeChangeImpact {
         return TimeChangeImpact(
             impactedStudents = scheduledExams[examId]?.studentCount ?: 0,
             conflictsResolved = emptyList(),
@@ -550,305 +564,24 @@ class ExamSessionScheduleAggregate {
         return lastGenerationMetrics?.preferenceSatisfactionRate ?: 0.0
     }
 
-    @Autowired
-    private lateinit var advancedSchedulingService: AdvancedSchedulingService
-
-    private fun generateSchedule(
-        courseEnrollmentData: Map<String, CourseEnrollmentInfo>,
-        courseAccreditationData: Map<String, CourseAccreditationInfo>,
-        professorPreferences: List<ProfessorPreferenceInfo>,
-        availableRooms: List<RoomInfo>
-    ): SchedulingResult {
-        logger.info("Generating advanced schedule for {} courses using CSP algorithms", courseEnrollmentData.size)
-
-        try {
-            val examPeriod = ExamPeriod(
-                startDate = this.startDate,
-                endDate = this.endDate,
-                name = this.examSessionPeriodId
-            )
-
-            val institutionalConstraints = InstitutionalConstraints(
-                workingHours = WorkingHours(
-                    startTime = LocalTime.of(8, 0),
-                    endTime = LocalTime.of(18, 0)
-                ),
-                minimumExamDuration = 120, // 2 hours
-                minimumGapMinutes = 30,
-                maxExamsPerDay = 6,
-                maxExamsPerRoom = 8,
-                allowWeekendExams = false
-            )
-
-            val schedulingResult = advancedSchedulingService.generateOptimalSchedule(
-                courseEnrollmentData = courseEnrollmentData,
-                courseAccreditationData = courseAccreditationData,
-                professorPreferences = professorPreferences,
-                availableRooms = availableRooms,
-                examPeriod = examPeriod,
-                institutionalConstraints = institutionalConstraints
-            )
-
-            logger.info("Advanced scheduling completed with {} exams, quality score: {}, violations: {}",
-                schedulingResult.scheduledExams.size,
-                schedulingResult.qualityScore,
-                schedulingResult.violations.size)
-
-            return schedulingResult
-
-        } catch (e: Exception) {
-            logger.error("Advanced scheduling failed, falling back to basic scheduling", e)
-
-            return generateBasicFallbackSchedule(
-                courseEnrollmentData, courseAccreditationData, availableRooms, e
-            )
-        }
-    }
-
-    private fun generateBasicFallbackSchedule(
-        courseEnrollmentData: Map<String, CourseEnrollmentInfo>,
-        courseAccreditationData: Map<String, CourseAccreditationInfo>,
-        availableRooms: List<RoomInfo>,
-        originalException: Exception
-    ): SchedulingResult {
-        logger.warn("Generating basic fallback schedule due to advanced scheduling failure: {}", originalException.message)
-
-        val fallbackExams = mutableListOf<ScheduledExamInfo>()
-        var currentDate = this.startDate
-        var currentTime = LocalTime.of(9, 0)
-        var roomIndex = 0
-
-        courseEnrollmentData.forEach { (courseId, enrollment) ->
-            val accreditation = courseAccreditationData[courseId]
-
-            if (accreditation != null) {
-                val room = availableRooms.find { it.capacity >= enrollment.studentCount }
-                    ?: availableRooms.getOrNull(roomIndex % availableRooms.size)
-                    ?: availableRooms.firstOrNull()
-
-                if (room != null) {
-                    val examDuration = when (accreditation.credits) {
-                        in 1..3 -> 90
-                        in 4..6 -> 120
-                        in 7..9 -> 180
-                        else -> 120
-                    }
-
-                    fallbackExams.add(
-                        ScheduledExamInfo(
-                            scheduledExamId = "${courseId}_fallback",
-                            courseId = courseId,
-                            courseName = accreditation.courseName,
-                            examDate = currentDate,
-                            startTime = currentTime,
-                            endTime = currentTime.plusMinutes(examDuration.toLong()),
-                            roomId = room.roomId,
-                            roomName = room.roomName,
-                            roomCapacity = room.capacity,
-                            studentCount = enrollment.studentCount,
-                            mandatoryStatus = accreditation.mandatoryStatus,
-                            professorIds = accreditation.professorIds
-                        )
-                    )
-
-                    currentTime = currentTime.plusMinutes(examDuration + 30L)
-                    if (currentTime.isAfter(LocalTime.of(17, 0))) {
-                        currentDate = currentDate.plusDays(1)
-                        currentTime = LocalTime.of(9, 0)
-                        roomIndex = (roomIndex + 1) % availableRooms.size
-                    }
-                }
-            }
-        }
-
-        val fallbackMetrics = SchedulingMetrics(
-            totalCoursesScheduled = fallbackExams.size,
+    private fun createDefaultMetrics(): SchedulingMetrics {
+        return SchedulingMetrics(
+            totalCoursesScheduled = 0,
             totalProfessorPreferencesConsidered = 0,
             preferencesSatisfied = 0,
-            preferenceSatisfactionRate = 0.3,
+            preferenceSatisfactionRate = 0.0,
             totalConflicts = 0,
             resolvedConflicts = 0,
-            roomUtilizationRate = calculateBasicRoomUtilization(fallbackExams),
-            averageStudentExamsPerDay = calculateBasicAverageExamsPerDay(fallbackExams),
-            processingTimeMs = 100L
+            roomUtilizationRate = 0.0,
+            averageStudentExamsPerDay = 0.0,
+            processingTimeMs = 0L
         )
-
-        return SchedulingResult(
-            scheduledExams = fallbackExams,
-            metrics = fallbackMetrics,
-            qualityScore = 0.4,
-            violations = listOf(
-                ConstraintViolation(
-                    violationType = "ADVANCED_SCHEDULING_FAILED",
-                    severity = ViolationSeverity.MEDIUM,
-                    description = "Advanced scheduling failed, using basic fallback: ${originalException.message}",
-                    affectedExams = fallbackExams.map { it.courseId },
-                    affectedStudents = fallbackExams.sumOf { it.studentCount },
-                    suggestedResolution = "Review scheduling parameters and retry with advanced algorithms"
-                )
-            )
-        )
-    }
-
-    private fun calculateBasicRoomUtilization(exams: List<ScheduledExamInfo>): Double {
-        val utilizations = exams.mapNotNull { exam ->
-            exam.roomCapacity?.let { capacity ->
-                if (capacity > 0) exam.studentCount.toDouble() / capacity else null
-            }
-        }
-        return if (utilizations.isNotEmpty()) utilizations.average() else 0.0
-    }
-
-    private fun calculateBasicAverageExamsPerDay(exams: List<ScheduledExamInfo>): Double {
-        val examsByDate = exams.groupBy { it.examDate }
-        val dailyCounts = examsByDate.values.map { it.size }
-        return if (dailyCounts.isNotEmpty()) dailyCounts.average() else 0.0
-    }
-
-    @CommandHandler
-    fun handle(command: OptimizeScheduleCommand) {
-        validateCommandForCurrentStatus(ScheduleStatus.GENERATED, ScheduleStatus.UNDER_REVIEW)
-
-        try {
-            val currentExams = scheduledExams.values.toList()
-            val currentAssignments = currentExams.associate { exam ->
-                exam.courseId to TimeSlot(
-                    date = exam.examDate,
-                    startTime = exam.startTime,
-                    endTime = exam.endTime,
-                    roomId = exam.roomId ?: "",
-                    roomName = exam.roomName ?: "",
-                    roomCapacity = exam.roomCapacity ?: 0,
-                    dayOfWeek = exam.examDate.dayOfWeek.value
-                )
-            }
-
-            val examPeriod = ExamPeriod(startDate, endDate, examSessionPeriodId)
-            val institutionalConstraints = InstitutionalConstraints(
-                workingHours = WorkingHours(LocalTime.of(8, 0), LocalTime.of(18, 0)),
-                minimumExamDuration = 120,
-                minimumGapMinutes = 30,
-                maxExamsPerDay = 6,
-                maxExamsPerRoom = 8
-            )
-
-            val courses = currentExams.map { exam ->
-                CourseSchedulingInfo(
-                    courseId = exam.courseId,
-                    courseName = exam.courseName,
-                    studentCount = exam.studentCount,
-                    professorIds = exam.professorIds,
-                    mandatoryStatus = exam.mandatoryStatus,
-                    estimatedDuration = java.time.Duration.between(exam.startTime, exam.endTime).toMinutes().toInt()
-                )
-            }
-
-            val problem = SchedulingProblem(
-                examPeriod = examPeriod,
-                courses = courses,
-                availableRooms = command.availableRooms,
-                professorPreferences = command.professorPreferences,
-                institutionalConstraints = institutionalConstraints,
-                constraints = emptyList(),
-                solvingStrategy = command.optimizationStrategy ?: SolvingStrategy.HYBRID_APPROACH
-            )
-
-            // Apply optimization
-            val optimizedResult = advancedSchedulingService.generateOptimalSchedule(
-                courseEnrollmentData = courses.associate { it.courseId to CourseEnrollmentInfo(it.courseId, it.studentCount) },
-                courseAccreditationData = courses.associate { course ->
-                    course.courseId to CourseAccreditationInfo(
-                        courseId = course.courseId,
-                        courseName = course.courseName,
-                        mandatoryStatus = course.mandatoryStatus,
-                        credits = 6, // Default
-                        professorIds = course.professorIds
-                    )
-                },
-                professorPreferences = command.professorPreferences,
-                availableRooms = command.availableRooms,
-                examPeriod = examPeriod,
-                institutionalConstraints = institutionalConstraints
-            )
-
-            scheduledExams.clear()
-
-            optimizedResult.scheduledExams.forEach { examInfo ->
-                AggregateLifecycle.apply(
-                    ScheduledExamAddedEvent(
-                        scheduleId = scheduleId,
-                        scheduledExamId = examInfo.scheduledExamId,
-                        courseId = examInfo.courseId,
-                        courseName = examInfo.courseName,
-                        examDate = examInfo.examDate,
-                        startTime = examInfo.startTime,
-                        endTime = examInfo.endTime,
-                        roomId = examInfo.roomId,
-                        roomName = examInfo.roomName,
-                        roomCapacity = examInfo.roomCapacity,
-                        studentCount = examInfo.studentCount,
-                        mandatoryStatus = examInfo.mandatoryStatus,
-                        professorIds = examInfo.professorIds,
-                        addedBy = command.optimizedBy,
-                        addedAt = Instant.now()
-                    )
-                )
-            }
-
-            AggregateLifecycle.apply(
-                ScheduleOptimizationCompletedEvent(
-                    scheduleId = scheduleId,
-                    optimizationStrategy = command.optimizationStrategy?.name ?: "HYBRID_APPROACH",
-                    previousQualityScore = command.previousQualityScore ?: 0.0,
-                    newQualityScore = optimizedResult.qualityScore,
-                    improvementRate = optimizedResult.qualityScore - (command.previousQualityScore ?: 0.0),
-                    optimizationTime = optimizedResult.metrics.processingTimeMs,
-                    optimizedBy = command.optimizedBy,
-                    optimizedAt = Instant.now(),
-                    constraintViolationsResolved = optimizedResult.violations.size,
-                    optimizationMetrics = mapOf(
-                        "preferenceSatisfactionRate" to optimizedResult.metrics.preferenceSatisfactionRate,
-                        "roomUtilizationRate" to optimizedResult.metrics.roomUtilizationRate,
-                        "totalConflicts" to optimizedResult.metrics.totalConflicts
-                    )
-                )
-            )
-
-        } catch (e: Exception) {
-            logger.error("Schedule optimization failed", e)
-
-            AggregateLifecycle.apply(
-                ScheduleOptimizationFailedEvent(
-                    scheduleId = scheduleId,
-                    failureReason = e.message ?: "Unknown optimization failure",
-                    failedAt = Instant.now(),
-                    attemptedBy = command.optimizedBy
-                )
-            )
-
-            throw IllegalStateException("Schedule optimization failed: ${e.message}", e)
-        }
-    }
-
-    @EventSourcingHandler
-    fun on(event: ScheduleOptimizationCompletedEvent) {
-        this.status = ScheduleStatus.GENERATED
-        this.updatedAt = event.optimizedAt
-        this.lastGenerationMetrics = this.lastGenerationMetrics?.copy(
-            preferenceSatisfactionRate = event.optimizationMetrics["preferenceSatisfactionRate"] as? Double ?: 0.0,
-            roomUtilizationRate = event.optimizationMetrics["roomUtilizationRate"] as? Double ?: 0.0,
-            totalConflicts = (event.optimizationMetrics["totalConflicts"] as? Number)?.toInt() ?: 0
-        )
-        this.version++
-
-        logger.info("Schedule optimization completed: improvement rate = {}", event.improvementRate)
-    }
-
-    @EventSourcingHandler
-    fun on(event: ScheduleOptimizationFailedEvent) {
-        this.updatedAt = event.failedAt
-        this.version++
-
-        logger.warn("Schedule optimization failed: {}", event.failureReason)
     }
 }
+
+data class GenerateDraftScheduleCommand(
+    @TargetAggregateIdentifier
+    val scheduleId: UUID,
+    val schedulingResult: SchedulingResult?,
+    val generatedBy: String
+)

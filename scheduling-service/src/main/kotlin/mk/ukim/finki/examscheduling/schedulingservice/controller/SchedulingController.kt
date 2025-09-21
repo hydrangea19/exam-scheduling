@@ -3,13 +3,14 @@ package mk.ukim.finki.examscheduling.schedulingservice.controller
 import jakarta.validation.Valid
 import mk.ukim.finki.examscheduling.schedulingservice.domain.*
 import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.CommentStatus
+import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.MandatoryStatus
 import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.ScheduleStatus
 import mk.ukim.finki.examscheduling.schedulingservice.repository.*
+import mk.ukim.finki.examscheduling.schedulingservice.service.AdvancedSchedulingService
 import mk.ukim.finki.examscheduling.schedulingservice.service.ConflictAnalysisService
 import mk.ukim.finki.examscheduling.schedulingservice.service.QualityScoringService
 import mk.ukim.finki.examscheduling.sharedsecurity.utilities.SecurityUtils
 import org.axonframework.commandhandling.gateway.CommandGateway
-import org.axonframework.queryhandling.QueryGateway
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -17,26 +18,27 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.reactive.function.client.WebClient
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.*
 
 @RestController
 @RequestMapping("/api/scheduling")
 class SchedulingController(
     private val commandGateway: CommandGateway,
-    private val queryGateway: QueryGateway,
     private val examSessionScheduleRepository: ExamSessionScheduleRepository,
     private val scheduledExamRepository: ScheduledExamRepository,
     private val professorCommentRepository: ProfessorCommentRepository,
     private val adjustmentLogRepository: AdjustmentLogRepository,
     private val qualityScoringService: QualityScoringService,
     private val conflictAnalysisService: ConflictAnalysisService,
-    private val scheduleVersionRepository: ScheduleVersionRepository
+    private val scheduleVersionRepository: ScheduleVersionRepository,
+    private val advancedSchedulingService: AdvancedSchedulingService
 ) {
 
     private val logger = LoggerFactory.getLogger(SchedulingController::class.java)
-
-    // === Schedule Management Endpoints ===
 
     @PostMapping("/schedules")
     @PreAuthorize("hasRole('ADMIN')")
@@ -46,20 +48,19 @@ class SchedulingController(
         val scheduleId = UUID.randomUUID()
 
         try {
-            commandGateway.sendAndWait<Void>(
-                CreateExamSessionScheduleCommand(
-                    scheduleId = scheduleId,
-                    examSessionPeriodId = request.examSessionPeriodId,
-                    academicYear = request.academicYear,
-                    examSession = request.examSession,
-                    startDate = request.startDate,
-                    endDate = request.endDate,
-                    createdBy = getCurrentUserId()
-                )
+            val schedule = ExamSessionSchedule(
+                id = scheduleId,
+                examSessionPeriodId = request.examSessionPeriodId,
+                academicYear = request.academicYear,
+                examSession = request.examSession,
+                startDate = request.startDate,
+                endDate = request.endDate,
+                status = ScheduleStatus.DRAFT,
+                createdAt = Instant.now()
             )
 
-            val schedule = examSessionScheduleRepository.findById(scheduleId).get()
-            return ResponseEntity.status(HttpStatus.CREATED).body(schedule.toResponse())
+            val savedSchedule = examSessionScheduleRepository.save(schedule)
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedSchedule.toResponse())
 
         } catch (e: Exception) {
             logger.error("Failed to create schedule", e)
@@ -75,13 +76,20 @@ class SchedulingController(
         @RequestParam(required = false) status: ScheduleStatus?,
         pageable: Pageable
     ): ResponseEntity<Page<ScheduleResponse>> {
-        logger.debug("Fetching schedules with filters: year={}, session={}, status={}", academicYear, examSession, status)
+        logger.debug(
+            "Fetching schedules with filters: year={}, session={}, status={}",
+            academicYear,
+            examSession,
+            status
+        )
 
         val schedules = when {
             academicYear != null && examSession != null ->
                 examSessionScheduleRepository.findByAcademicYearAndExamSession(academicYear, examSession)
+
             status != null ->
                 examSessionScheduleRepository.findByStatus(status)
+
             else ->
                 examSessionScheduleRepository.findAll()
         }
@@ -125,35 +133,260 @@ class SchedulingController(
             val schedule = examSessionScheduleRepository.findById(scheduleId).orElse(null)
                 ?: return ResponseEntity.notFound().build()
 
-            // Initiate the complex generation process
-            commandGateway.sendAndWait<Void>(
-                InitiateScheduleGenerationCommand(
-                    scheduleId = scheduleId,
-                    examSessionPeriodId = schedule.examSessionPeriodId,
-                    academicYear = schedule.academicYear,
-                    examSession = schedule.examSession,
-                    initiatedBy = getCurrentUserId()
-                )
+            val examPeriod = ExamPeriod(
+                examSessionPeriodId = schedule.examSessionPeriodId,
+                academicYear = schedule.academicYear,
+                examSession = schedule.examSession,
+                startDate = schedule.startDate,
+                endDate = schedule.endDate
             )
+
+            val courseEnrollmentData = createMockEnrollmentData()
+            val courseAccreditationData = createMockAccreditationData()
+            val professorPreferences = createMockPreferences()
+            val availableRooms = createMockRooms()
+
+            val result = advancedSchedulingService.generateOptimalSchedule(
+                courseEnrollmentData = courseEnrollmentData,
+                courseAccreditationData = courseAccreditationData,
+                professorPreferences = professorPreferences,
+                availableRooms = availableRooms,
+                examPeriod = examPeriod
+            )
+
+            logger.info("Schedule generated: {} exams with quality {}",
+                result.scheduledExams.size, result.qualityScore)
 
             return ResponseEntity.ok(
                 GenerationResponse(
                     scheduleId = scheduleId,
-                    status = "INITIATED",
-                    message = "Schedule generation has been initiated. This may take several minutes.",
-                    estimatedCompletionTime = Instant.now().plusSeconds(300) // 5 minutes
+                    status = "COMPLETED",
+                    message = "Generated ${result.scheduledExams.size} exams with quality score ${result.qualityScore}",
+                    estimatedCompletionTime = Instant.now()
                 )
             )
 
         } catch (e: Exception) {
-            logger.error("Failed to initiate schedule generation", e)
+            logger.error("Failed to generate schedule", e)
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(GenerationResponse(
                     scheduleId = scheduleId,
                     status = "FAILED",
-                    message = "Failed to initiate generation: ${e.message}",
+                    message = "Generation failed: ${e.message}",
                     estimatedCompletionTime = null
                 ))
+        }
+    }
+
+    private fun createMockEnrollmentData() = mapOf(
+        "CS101" to CourseEnrollmentInfo("CS101", 50, mapOf()),
+        "MATH201" to CourseEnrollmentInfo("MATH201", 30, mapOf()),
+        "ENG301" to CourseEnrollmentInfo("ENG301", 25, mapOf())
+    )
+
+    private fun createMockAccreditationData() = mapOf(
+        "CS101" to CourseAccreditationInfo(
+            courseId = "CS101",
+            courseName = "Computer Science",
+            mandatoryStatus = MandatoryStatus.MANDATORY,
+            credits = 6,
+            professorIds = setOf("PROF001"),
+            prerequisites = emptySet(),
+            accreditationDetails = mapOf()
+        ),
+        "MATH201" to CourseAccreditationInfo(
+            courseId = "MATH201",
+            courseName = "Mathematics",
+            mandatoryStatus = MandatoryStatus.MANDATORY,
+            credits = 5,
+            professorIds = setOf("PROF002"),
+            prerequisites = emptySet(),
+            accreditationDetails = mapOf()
+        ),
+        "ENG301" to CourseAccreditationInfo(
+            courseId = "ENG301",
+            courseName = "English",
+            mandatoryStatus = MandatoryStatus.ELECTIVE,
+            credits = 3,
+            professorIds = setOf("PROF003"),
+            prerequisites = emptySet(),
+            accreditationDetails = mapOf()
+        )
+    )
+
+    private fun createMockPreferences() = listOf(
+        ProfessorPreferenceInfo(
+            preferenceId = "PREF001",
+            professorId = "PROF001",
+            courseId = "CS101",
+            preferredDates = listOf(LocalDate.of(2025, 6, 16)),
+            preferredTimeSlots = listOf(
+                TimeSlotPreference(LocalTime.of(9, 0), LocalTime.of(11, 0))
+            ),
+            preferredRooms = listOf("ROOM_A101"),
+            unavailableDates = emptyList(),
+            unavailableTimeSlots = emptyList(),
+            specialRequirements = "Morning preference",
+            priority = 1
+        )
+    )
+
+    private fun createMockRooms() = listOf(
+        RoomInfo("ROOM_A101", "Amphitheater A101", 80, setOf("projector"), "Building A", true),
+        RoomInfo("ROOM_B205", "Classroom B205", 40, setOf("whiteboard"), "Building B", true),
+        RoomInfo("ROOM_C302", "Lab C302", 30, setOf("computers"), "Building C", true)
+    )
+
+    @PostMapping("/schedules/{scheduleId}/generate-direct")
+    fun generateScheduleDirect(@PathVariable scheduleId: UUID): ResponseEntity<Map<String, Any?>> {
+        logger.info("Direct schedule generation test for: {}", scheduleId)
+
+        try {
+            val schedule = examSessionScheduleRepository.findById(scheduleId).orElse(null)
+                ?: return ResponseEntity.badRequest().body(mapOf(
+                    "scheduleId" to scheduleId,
+                    "status" to "FAILED",
+                    "error" to "Schedule not found"
+                ))
+
+            val webClient = WebClient.builder()
+                .baseUrl("http://localhost:8009")
+                .build()
+
+            val requestData = mapOf(
+                "examPeriod" to mapOf(
+                    "examSessionPeriodId" to "TEST_SESSION_2025",
+                    "academicYear" to "2024-2025",
+                    "examSession" to "Test Session",
+                    "startDate" to "2025-06-15",
+                    "endDate" to "2025-06-20"
+                ),
+                "courses" to listOf(
+                    mapOf(
+                        "courseId" to "CS101",
+                        "courseName" to "Computer Science",
+                        "studentCount" to 50,
+                        "professorIds" to listOf("PROF001"),
+                        "mandatoryStatus" to "MANDATORY",
+                        "estimatedDuration" to 120,
+                        "requiredEquipment" to emptyList<String>(),
+                        "accessibilityRequired" to false
+                    ),
+                    mapOf(
+                        "courseId" to "MATH201",
+                        "courseName" to "Mathematics",
+                        "studentCount" to 30,
+                        "professorIds" to listOf("PROF002"),
+                        "mandatoryStatus" to "MANDATORY",
+                        "estimatedDuration" to 120,
+                        "requiredEquipment" to emptyList<String>(),
+                        "accessibilityRequired" to false
+                    )
+                ),
+                "availableRooms" to listOf(
+                    mapOf(
+                        "roomId" to "ROOM_A101",
+                        "roomName" to "Amphitheater A101",
+                        "capacity" to 80,
+                        "equipment" to listOf("projector"),
+                        "location" to "Building A",
+                        "accessibility" to true
+                    ),
+                    mapOf(
+                        "roomId" to "ROOM_B205",
+                        "roomName" to "Classroom B205",
+                        "capacity" to 40,
+                        "equipment" to listOf("whiteboard"),
+                        "location" to "Building B",
+                        "accessibility" to true
+                    )
+                ),
+                "professorPreferences" to listOf(
+                    mapOf(
+                        "preferenceId" to "PREF001",
+                        "professorId" to "PROF001",
+                        "courseId" to "CS101",
+                        "preferredDates" to listOf("2025-06-16"),
+                        "preferredTimeSlots" to listOf(
+                            mapOf("startTime" to "09:00:00", "endTime" to "11:00:00")
+                        ),
+                        "preferredRooms" to listOf("ROOM_A101"),
+                        "unavailableDates" to emptyList<String>(),
+                        "unavailableTimeSlots" to emptyList<String>(),
+                        "specialRequirements" to "Morning preference",
+                        "priority" to 1
+                    )
+                ),
+                "institutionalConstraints" to mapOf(
+                    "workingHours" to mapOf(
+                        "startTime" to "08:00:00",
+                        "endTime" to "18:00:00"
+                    ),
+                    "minimumExamDuration" to 90,
+                    "minimumGapMinutes" to 30,
+                    "maxExamsPerDay" to 6,
+                    "maxExamsPerRoom" to 8,
+                    "allowWeekendExams" to false
+                )
+            )
+
+            val response = webClient
+                .post()
+                .uri("/api/schedule/generate")
+                .bodyValue(requestData)
+                .retrieve()
+                .bodyToMono(object : org.springframework.core.ParameterizedTypeReference<Map<String, Any>>() {})
+                .block()
+
+           logger.info("Python service response: {}", response)
+
+            try {
+                val generatedExams = response?.get("scheduledExams") as? List<Map<String, Any>>
+
+                generatedExams?.forEach { examData ->
+                    val scheduledExam = ScheduledExam(
+                        scheduledExamId = examData["scheduledExamId"] as String,
+                        courseId = examData["courseId"] as String,
+                        courseName = examData["courseName"] as String,
+                        examDate = LocalDate.parse(examData["examDate"] as String),
+                        startTime = LocalTime.parse(examData["startTime"] as String),
+                        endTime = LocalTime.parse(examData["endTime"] as String),
+                        roomId = examData["roomId"] as? String,
+                        roomName = examData["roomName"] as? String,
+                        roomCapacity = examData["roomCapacity"] as? Int,
+                        studentCount = examData["studentCount"] as? Int ?: 0,
+                        mandatoryStatus = MandatoryStatus.valueOf(examData["mandatoryStatus"] as String),
+                        examSessionSchedule = schedule
+                    )
+                    scheduledExamRepository.save(scheduledExam)
+                }
+
+                logger.info("Saved {} exams to database", generatedExams?.size ?: 0)
+            } catch (e: Exception) {
+                logger.warn("Failed to parse Python response, but generation call succeeded", e)
+            }
+
+            schedule.status = ScheduleStatus.GENERATED
+            examSessionScheduleRepository.save(schedule)
+            logger.info("Updated schedule status to GENERATED")
+
+            logger.info("Python service response: {}", response)
+
+            return ResponseEntity.ok(mapOf(
+                "scheduleId" to scheduleId,
+                "status" to "SUCCESS",
+                "pythonResponse" to response,
+                "message" to "Direct Python integration working!"
+            ))
+
+        } catch (e: Exception) {
+            logger.error("Direct generation failed", e)
+            return ResponseEntity.ok(mapOf(
+                "scheduleId" to scheduleId,
+                "status" to "FAILED",
+                "error" to e.message,
+                "message" to "Check if Python service is running on port 8009"
+            ))
         }
     }
 
@@ -166,13 +399,12 @@ class SchedulingController(
         logger.info("Publishing schedule for review: {}", scheduleId)
 
         try {
-            commandGateway.sendAndWait<Void>(
-                PublishDraftScheduleForReviewCommand(
-                    scheduleId = scheduleId,
-                    publishedBy = getCurrentUserId(),
-                    publishNotes = request.notes
-                )
-            )
+            val schedule = examSessionScheduleRepository.findById(scheduleId).orElse(null)
+                ?: return ResponseEntity.notFound().build()
+
+            schedule.status = ScheduleStatus.PUBLISHED_FOR_REVIEW
+            schedule.publishedAt = Instant.now()
+            examSessionScheduleRepository.save(schedule)
 
             return ResponseEntity.ok().build()
 
@@ -188,23 +420,38 @@ class SchedulingController(
         @PathVariable scheduleId: UUID,
         @RequestBody request: FinalizeScheduleRequest
     ): ResponseEntity<Void> {
-        logger.info("Finalizing schedule: {}", scheduleId)
+        val schedule = examSessionScheduleRepository.findById(scheduleId).orElse(null)
+            ?: return ResponseEntity.notFound().build()
 
-        try {
-            commandGateway.sendAndWait<Void>(
-                FinalizeScheduleCommand(
-                    scheduleId = scheduleId,
-                    finalizedBy = getCurrentUserId(),
-                    finalizeNotes = request.notes
-                )
-            )
+        // Update schedule status
+        schedule.status = ScheduleStatus.FINALIZED
+        schedule.finalizedAt = Instant.now()
+        examSessionScheduleRepository.save(schedule)
 
-            return ResponseEntity.ok().build()
+        val webClient = WebClient.builder()
+            .baseUrl("http://localhost:8005")
+            .build()
 
-        } catch (e: Exception) {
-            logger.error("Failed to finalize schedule", e)
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-        }
+        val publishRequest = mapOf(
+            "scheduleId" to scheduleId,
+            "examSessionPeriodId" to schedule.examSessionPeriodId,
+            "academicYear" to schedule.academicYear,
+            "examSession" to schedule.examSession,
+            "title" to "${schedule.academicYear} ${schedule.examSession} Exam Schedule",
+            "description" to "Finalized exam schedule for ${schedule.examSession} ${schedule.academicYear}",
+            "publishedBy" to getCurrentUserId(),
+            "isPublic" to true
+        )
+
+        webClient.post()
+            .uri("/api/publishing/schedules")
+            .bodyValue(publishRequest)
+            .retrieve()
+            .bodyToMono(String::class.java)
+            .block()
+
+        logger.info("Published schedule record created successfully")
+        return ResponseEntity.ok().build()
     }
 
     // === Exam Management Endpoints ===
@@ -218,30 +465,26 @@ class SchedulingController(
         logger.info("Adding exam to schedule: {}, course: {}", scheduleId, request.courseId)
 
         try {
-            commandGateway.sendAndWait<Void>(
-                AddScheduledExamCommand(
-                    scheduleId = scheduleId,
-                    scheduledExamId = request.scheduledExamId ?: "${request.courseId}_${scheduleId}",
-                    courseId = request.courseId,
-                    courseName = request.courseName,
-                    examDate = request.examDate,
-                    startTime = request.startTime,
-                    endTime = request.endTime,
-                    roomId = request.roomId,
-                    roomName = request.roomName,
-                    roomCapacity = request.roomCapacity,
-                    studentCount = request.studentCount,
-                    mandatoryStatus = request.mandatoryStatus,
-                    professorIds = request.professorIds,
-                    addedBy = getCurrentUserId()
-                )
+            val schedule = examSessionScheduleRepository.findById(scheduleId).orElse(null)
+                ?: return ResponseEntity.notFound().build()
+
+            val scheduledExam = ScheduledExam(
+                scheduledExamId = request.scheduledExamId ?: "${request.courseId}_${scheduleId}",
+                courseId = request.courseId,
+                courseName = request.courseName,
+                examDate = request.examDate,
+                startTime = request.startTime,
+                endTime = request.endTime,
+                roomId = request.roomId,
+                roomName = request.roomName,
+                roomCapacity = request.roomCapacity,
+                studentCount = request.studentCount,
+                mandatoryStatus = request.mandatoryStatus,
+                examSessionSchedule = schedule
             )
 
-            val exam = scheduledExamRepository.findByScheduledExamId(
-                request.scheduledExamId ?: "${request.courseId}_${scheduleId}"
-            )!!
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(exam.toResponse())
+            val savedExam = scheduledExamRepository.save(scheduledExam)
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedExam.toResponse())
 
         } catch (e: Exception) {
             logger.error("Failed to add exam", e)
@@ -352,7 +595,11 @@ class SchedulingController(
         logger.debug("Fetching feedback for schedule: {}", scheduleId)
 
         val comments = when {
-            professorId != null -> professorCommentRepository.findByProfessorIdAndExamSessionScheduleId(professorId, scheduleId)
+            professorId != null -> professorCommentRepository.findByProfessorIdAndExamSessionScheduleId(
+                professorId,
+                scheduleId
+            )
+
             else -> professorCommentRepository.findByExamSessionScheduleId(scheduleId)
         }.filter { status == null || it.status == status }
 

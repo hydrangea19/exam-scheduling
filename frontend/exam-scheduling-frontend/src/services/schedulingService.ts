@@ -2,11 +2,11 @@ import axios, { AxiosError, type AxiosResponse } from 'axios';
 
 
 export interface CreateScheduleRequest {
-    examSessionPeriodId: string;
-    academicYear: string;
-    examSession: string;
-    startDate: string;
-    endDate: string;
+    exam_session_period_id: string;
+    academic_year: string;
+    exam_session: string;
+    start_date: string;
+    end_date: string;
 }
 
 export interface AddExamRequest {
@@ -64,42 +64,44 @@ export interface CreateVersionRequest {
 
 export interface ScheduleResponse {
     id: string;
-    examSessionPeriodId: string;
-    academicYear: string;
-    examSession: string;
-    status: 'DRAFT' | 'IN_REVIEW' | 'FINALIZED' | 'PUBLISHED';
-    startDate: string;
-    endDate: string;
-    createdAt: string;
-    createdBy: string;
-    updatedAt?: string;
-    finalizedAt?: string;
-    finalizedBy?: string;
+    exam_session_period_id: string;
+    academic_year: string;
+    exam_session: string;
+    status: 'DRAFT' | 'GENERATED' | 'PUBLISHED_FOR_REVIEW' | 'FINALIZED' | 'PUBLISHED';
+    start_date: string;
+    end_date: string;
+    created_at: string;
+    created_by?: string;
+    updated_at?: string;
+    finalized_at?: string;
+    finalized_by?: string;
+    total_exams: number;
 }
 
 export interface ExamResponse {
-    scheduledExamId: string;
-    courseId: string;
-    courseName: string;
-    examDate: string;
-    startTime: string;
-    endTime: string;
-    roomId?: string;
-    roomName?: string;
-    roomCapacity?: number;
-    studentCount: number;
-    mandatoryStatus: 'MANDATORY' | 'ELECTIVE';
-    professorIds: string[];
+    id: string;
+    scheduled_exam_id: string;
+    course_id: string;
+    course_name: string;
+    exam_date: string;
+    start_time: string;
+    end_time: string;
+    room_id?: string;
+    room_name?: string;
+    room_capacity?: number;
+    student_count: number;
+    mandatory_status: 'MANDATORY' | 'ELECTIVE';
+    professor_ids: string[];
 }
 
 export interface CommentResponse {
-    commentId: string;
-    professorId: string;
-    scheduledExamId: string;
-    commentText: string;
-    commentType: string;
+    comment_id: string;
+    professor_id: string;
+    scheduled_exam_id: string;
+    comment_text: string;
+    comment_type: string;
     status: 'PENDING' | 'REVIEWED' | 'RESOLVED';
-    submittedAt: string;
+    submitted_at: string;
 }
 
 export interface QualityMetricsResponse {
@@ -210,10 +212,16 @@ class SchedulingService {
 
     async generateSchedule(scheduleId: string): Promise<GenerationResponse> {
         try {
-            const response: AxiosResponse<GenerationResponse> = await axios.post(
-                `${this.baseUrl}/schedules/${scheduleId}/generate`
+            const response: AxiosResponse<any> = await axios.post(
+                `${this.baseUrl}/schedules/${scheduleId}/generate-direct`
             );
-            return response.data;
+
+            return {
+                scheduleId: response.data.scheduleId,
+                status: response.data.status === 'SUCCESS' ? 'COMPLETED' : 'FAILED',
+                message: response.data.message,
+                estimatedCompletionTime: new Date().toISOString()
+            };
         } catch (error: unknown) {
             this.handleError(error, "Failed to generate schedule");
             throw error;

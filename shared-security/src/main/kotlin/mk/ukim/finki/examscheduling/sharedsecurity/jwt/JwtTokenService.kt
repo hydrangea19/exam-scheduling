@@ -29,6 +29,7 @@ class JwtTokenService(
         }
     }
 
+
     fun validateToken(token: String): TokenValidationResult {
         val decodedJwt = tryDecode(token)
 

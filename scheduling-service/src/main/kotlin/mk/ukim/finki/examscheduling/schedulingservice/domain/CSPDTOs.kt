@@ -62,19 +62,21 @@ data class SchedulingProblem(
 )
 
 data class ExamPeriod(
+    val examSessionPeriodId: String,
+    val academicYear: String,
+    val examSession: String,
     val startDate: LocalDate,
-    val endDate: LocalDate,
-    val name: String
+    val endDate: LocalDate
 )
 
 data class CourseSchedulingInfo(
     val courseId: String,
     val courseName: String,
     val studentCount: Int,
-    val professorIds: Set<String>,
+    val professorIds: List<String>,
     val mandatoryStatus: MandatoryStatus,
     val estimatedDuration: Int,
-    val requiredEquipment: Set<String> = emptySet(),
+    val requiredEquipment: List<String> = emptyList(),
     val accessibilityRequired: Boolean = false,
     val specialRequirements: String? = null
 )

@@ -442,7 +442,6 @@ fun ExamSessionSchedule.toResponse() = ScheduleResponse(
     updatedAt = updatedAt,
     finalizedAt = finalizedAt,
     publishedAt = publishedAt,
-    totalExams = scheduledExams.size
 )
 
 fun ScheduledExam.toResponse() = ExamResponse(

@@ -17,12 +17,18 @@ import {
 import schedulingService, {
     type ScheduleResponse,
     type DetailedScheduleResponse,
-    type CreateScheduleRequest,
     type AddExamRequest,
     type SubmitFeedbackRequest,
     type GenerationResponse
 } from '../services/schedulingService';
 import { useAuth } from '../context/AuthContext';
+
+interface CreateScheduleRequestForm {
+    academicYear: string;
+    examSession: string;
+    startDate: string;
+    endDate: string;
+}
 
 const SchedulingManagement: React.FC = () => {
     const { user } = useAuth();
@@ -37,8 +43,7 @@ const SchedulingManagement: React.FC = () => {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-    const [createForm, setCreateForm] = useState<CreateScheduleRequest>({
-        examSessionPeriodId: '',
+    const [createForm, setCreateForm] = useState<CreateScheduleRequestForm>({
         academicYear: '2025',
         examSession: 'WINTER',
         startDate: '',
@@ -101,9 +106,13 @@ const SchedulingManagement: React.FC = () => {
 
             const examSessionPeriodId = `${createForm.academicYear}_${createForm.examSession}_SCHEDULE`;
 
+            // Convert to snake_case for backend
             const request = {
-                ...createForm,
-                examSessionPeriodId
+                exam_session_period_id: examSessionPeriodId,
+                academic_year: createForm.academicYear,
+                exam_session: createForm.examSession,
+                start_date: createForm.startDate,
+                end_date: createForm.endDate
             };
 
             await schedulingService.createSchedule(request);
@@ -112,7 +121,6 @@ const SchedulingManagement: React.FC = () => {
             loadSchedules();
 
             setCreateForm({
-                examSessionPeriodId: '',
                 academicYear: '2025',
                 examSession: 'WINTER',
                 startDate: '',
@@ -222,9 +230,9 @@ const SchedulingManagement: React.FC = () => {
             case 'generate':
                 return schedule.status === 'DRAFT';
             case 'publish':
-                return schedule.status === 'DRAFT';
+                return schedule.status === 'DRAFT' || schedule.status === 'GENERATED';
             case 'finalize':
-                return schedule.status === 'IN_REVIEW';
+                return schedule.status === 'PUBLISHED_FOR_REVIEW';
             default:
                 return true;
         }
@@ -239,7 +247,7 @@ const SchedulingManagement: React.FC = () => {
                         Schedule Management
                     </h2>
                     <p className="text-muted">
-                        Manage exam schedules, generate optimized timetables, and handle feedback.
+                        Manage exam schedules, generate optimized timetables using constraint satisfaction, and handle feedback.
                     </p>
                 </Col>
             </Row>
@@ -304,11 +312,11 @@ const SchedulingManagement: React.FC = () => {
                                     <tbody>
                                     {schedules.map((schedule) => (
                                         <tr key={schedule.id}>
-                                            <td>{schedule.academicYear}</td>
-                                            <td>{schedule.examSession}</td>
+                                            <td>{schedule.academic_year}</td>
+                                            <td>{schedule.exam_session}</td>
                                             <td>
-                                                {new Date(schedule.startDate).toLocaleDateString()} - {' '}
-                                                {new Date(schedule.endDate).toLocaleDateString()}
+                                                {new Date(schedule.start_date).toLocaleDateString()} - {' '}
+                                                {new Date(schedule.end_date).toLocaleDateString()}
                                             </td>
                                             <td>
                                                 <Badge bg={getStatusBadgeVariant(schedule.status)}>
@@ -316,7 +324,7 @@ const SchedulingManagement: React.FC = () => {
                                                 </Badge>
                                             </td>
                                             <td>
-                                                {new Date(schedule.createdAt).toLocaleDateString()}
+                                                {new Date(schedule.created_at).toLocaleDateString()}
                                             </td>
                                             <td>
                                                 <div className="d-flex gap-2">
@@ -324,6 +332,7 @@ const SchedulingManagement: React.FC = () => {
                                                         size="sm"
                                                         variant="outline-info"
                                                         onClick={() => loadScheduleDetails(schedule.id)}
+                                                        title="View Details"
                                                     >
                                                         <i className="bi bi-eye"></i>
                                                     </Button>
@@ -334,9 +343,9 @@ const SchedulingManagement: React.FC = () => {
                                                             variant="outline-success"
                                                             onClick={() => handleGenerateSchedule(schedule.id)}
                                                             disabled={loading}
-                                                            title="Generate Schedule"
+                                                            title="Generate Schedule via Python AI"
                                                         >
-                                                            <i className="bi bi-gear"></i>
+                                                            <i className="bi bi-cpu"></i>
                                                         </Button>
                                                     )}
 
@@ -451,7 +460,7 @@ const SchedulingManagement: React.FC = () => {
             <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl">
                 <Modal.Header closeButton>
                     <Modal.Title>
-                        Schedule Details - {selectedSchedule?.schedule.academicYear} {selectedSchedule?.schedule.examSession}
+                        Schedule Details - {selectedSchedule?.schedule.academic_year} {selectedSchedule?.schedule.exam_session}
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
@@ -473,7 +482,8 @@ const SchedulingManagement: React.FC = () => {
 
                                     {selectedSchedule.exams.length === 0 ? (
                                         <div className="text-center py-4 text-muted">
-                                            No exams scheduled yet.
+                                            <i className="bi bi-calendar-x display-4 d-block mb-3"></i>
+                                            <p>No exams scheduled yet. Click "Generate Schedule" to create an optimized timetable.</p>
                                         </div>
                                     ) : (
                                         <Table responsive size="sm">
@@ -489,23 +499,23 @@ const SchedulingManagement: React.FC = () => {
                                             </thead>
                                             <tbody>
                                             {selectedSchedule.exams.map((exam) => (
-                                                <tr key={exam.scheduledExamId}>
+                                                <tr key={exam.scheduled_exam_id}>
                                                     <td>
-                                                        <strong>{exam.courseId}</strong><br/>
-                                                        <small className="text-muted">{exam.courseName}</small>
+                                                        <strong>{exam.course_id}</strong><br/>
+                                                        <small className="text-muted">{exam.course_name}</small>
                                                     </td>
-                                                    <td>{new Date(exam.examDate).toLocaleDateString()}</td>
-                                                    <td>{exam.startTime} - {exam.endTime}</td>
+                                                    <td>{new Date(exam.exam_date).toLocaleDateString()}</td>
+                                                    <td>{exam.start_time} - {exam.end_time}</td>
                                                     <td>
-                                                        {exam.roomName || 'TBD'}<br/>
+                                                        {exam.room_name || 'TBD'}<br/>
                                                         <small className="text-muted">
-                                                            Capacity: {exam.roomCapacity || 'N/A'}
+                                                            Capacity: {exam.room_capacity || 'N/A'}
                                                         </small>
                                                     </td>
-                                                    <td>{exam.studentCount}</td>
+                                                    <td>{exam.student_count}</td>
                                                     <td>
-                                                        <Badge bg={exam.mandatoryStatus === 'MANDATORY' ? 'primary' : 'secondary'}>
-                                                            {exam.mandatoryStatus}
+                                                        <Badge bg={exam.mandatory_status === 'MANDATORY' ? 'primary' : 'secondary'}>
+                                                            {exam.mandatory_status}
                                                         </Badge>
                                                     </td>
                                                 </tr>
@@ -521,7 +531,7 @@ const SchedulingManagement: React.FC = () => {
                                     {selectedSchedule.conflicts.length === 0 ? (
                                         <div className="text-center py-4 text-success">
                                             <i className="bi bi-check-circle display-4 d-block mb-3"></i>
-                                            No conflicts detected!
+                                            <p>No conflicts detected! The constraint satisfaction algorithm successfully resolved all potential issues.</p>
                                         </div>
                                     ) : (
                                         selectedSchedule.conflicts.map((conflict) => (
@@ -558,18 +568,19 @@ const SchedulingManagement: React.FC = () => {
 
                                     {selectedSchedule.comments.length === 0 ? (
                                         <div className="text-center py-4 text-muted">
-                                            No feedback submitted yet.
+                                            <i className="bi bi-chat-dots display-4 d-block mb-3"></i>
+                                            <p>No feedback submitted yet. Professors can provide comments on the generated schedule.</p>
                                         </div>
                                     ) : (
                                         selectedSchedule.comments.map((comment) => (
-                                            <Alert key={comment.commentId} variant="info">
+                                            <Alert key={comment.comment_id} variant="info">
                                                 <div className="d-flex justify-content-between mb-2">
-                                                    <strong>Professor {comment.professorId}</strong>
+                                                    <strong>Professor {comment.professor_id}</strong>
                                                     <Badge bg="info">{comment.status}</Badge>
                                                 </div>
-                                                <p className="mb-1">{comment.commentText}</p>
+                                                <p className="mb-1">{comment.comment_text}</p>
                                                 <small className="text-muted">
-                                                    {new Date(comment.submittedAt).toLocaleString()}
+                                                    {new Date(comment.submitted_at).toLocaleString()}
                                                 </small>
                                             </Alert>
                                         ))
@@ -578,8 +589,13 @@ const SchedulingManagement: React.FC = () => {
                             </Tab>
 
                             {selectedSchedule.metrics && (
-                                <Tab eventKey="metrics" title="Quality Metrics">
+                                <Tab eventKey="metrics" title="AI Quality Metrics">
                                     <div className="mt-3">
+                                        <Alert variant="info" className="mb-4">
+                                            <i className="bi bi-cpu me-2"></i>
+                                            <strong>AI-Generated Schedule Quality Analysis</strong><br/>
+                                            These metrics show how well the constraint satisfaction algorithm performed.
+                                        </Alert>
                                         <Row>
                                             <Col md={4}>
                                                 <Card className="text-center">
@@ -587,7 +603,7 @@ const SchedulingManagement: React.FC = () => {
                                                         <h2 className="text-primary">
                                                             {(selectedSchedule.metrics.qualityScore * 100).toFixed(1)}%
                                                         </h2>
-                                                        <p className="text-muted mb-0">Quality Score</p>
+                                                        <p className="text-muted mb-0">Overall Quality Score</p>
                                                     </Card.Body>
                                                 </Card>
                                             </Col>
@@ -608,6 +624,28 @@ const SchedulingManagement: React.FC = () => {
                                                             {selectedSchedule.metrics.totalConflicts}
                                                         </h2>
                                                         <p className="text-muted mb-0">Total Conflicts</p>
+                                                    </Card.Body>
+                                                </Card>
+                                            </Col>
+                                        </Row>
+                                        <Row className="mt-3">
+                                            <Col md={6}>
+                                                <Card className="text-center">
+                                                    <Card.Body>
+                                                        <h3 className="text-info">
+                                                            {(selectedSchedule.metrics.roomUtilizationRate * 100).toFixed(1)}%
+                                                        </h3>
+                                                        <p className="text-muted mb-0">Room Utilization</p>
+                                                    </Card.Body>
+                                                </Card>
+                                            </Col>
+                                            <Col md={6}>
+                                                <Card className="text-center">
+                                                    <Card.Body>
+                                                        <h3 className="text-secondary">
+                                                            {selectedSchedule.metrics.processingTimeMs}ms
+                                                        </h3>
+                                                        <p className="text-muted mb-0">Processing Time</p>
                                                     </Card.Body>
                                                 </Card>
                                             </Col>
@@ -743,8 +781,8 @@ const SchedulingManagement: React.FC = () => {
                             >
                                 <option value="">Select an exam...</option>
                                 {selectedSchedule?.exams.map((exam) => (
-                                    <option key={exam.scheduledExamId} value={exam.scheduledExamId}>
-                                        {exam.courseId} - {exam.courseName}
+                                    <option key={exam.scheduled_exam_id} value={exam.scheduled_exam_id}>
+                                        {exam.course_id} - {exam.course_name}
                                     </option>
                                 ))}
                             </Form.Select>

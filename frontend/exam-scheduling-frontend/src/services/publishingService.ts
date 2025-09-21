@@ -75,6 +75,32 @@ class PublishingService {
         };
         return colorMap[status] || 'secondary';
     }
+
+    async exportScheduleToPdf(scheduleId: string): Promise<Blob> {
+        try {
+            const response = await axios.get(
+                `${this.baseUrl}/schedules/${scheduleId}/export/pdf`,
+                { responseType: 'blob' }
+            );
+            return response.data;
+        } catch (error: unknown) {
+            this.handleError(error, "Failed to export PDF");
+            throw error;
+        }
+    }
+
+    async exportScheduleToExcel(scheduleId: string): Promise<Blob> {
+        try {
+            const response = await axios.get(
+                `${this.baseUrl}/schedules/${scheduleId}/export/excel`,
+                { responseType: 'blob' }
+            );
+            return response.data;
+        } catch (error: unknown) {
+            this.handleError(error, "Failed to export Excel");
+            throw error;
+        }
+    }
 }
 
 export const publishingService = new PublishingService();

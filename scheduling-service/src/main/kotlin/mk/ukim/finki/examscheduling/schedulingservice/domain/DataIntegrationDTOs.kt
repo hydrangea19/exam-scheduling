@@ -1,21 +1,11 @@
 package mk.ukim.finki.examscheduling.schedulingservice.domain
 
-import jakarta.validation.Valid
 import mk.ukim.finki.examscheduling.schedulingservice.domain.enums.MandatoryStatus
-import mk.ukim.finki.examscheduling.sharedsecurity.utilities.SecurityUtils
-import org.aspectj.weaver.tools.cache.CacheStatistics
 import org.axonframework.modelling.command.TargetAggregateIdentifier
-import org.slf4j.LoggerFactory
-import org.springframework.data.domain.Pageable
-import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
-import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.web.bind.annotation.*
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.*
-import java.util.concurrent.CompletableFuture
 
 data class IntegratedSchedulingData(
     val examSessionPeriodId: String,
@@ -240,7 +230,7 @@ data class ApplyGeneratedScheduleCommand(
     @TargetAggregateIdentifier
     val scheduleId: UUID,
     val schedulingResult: SchedulingResult,
-    val resourceAllocations: RoomAllocationResult,
+    val resourceAllocations: RoomAllocationResult?,
     val dataQualityMetrics: DataQualityMetrics,
     val generationMetadata: GenerationMetadata,
     val generatedBy: String
@@ -286,7 +276,6 @@ sealed class ScheduleGenerationResult {
     data class Success(
         val scheduleId: UUID,
         val schedulingResult: SchedulingResult,
-        val resourceAllocations: RoomAllocationResult,
         val dataQuality: DataQualityMetrics
     ) : ScheduleGenerationResult()
 
@@ -300,9 +289,8 @@ sealed class ScheduleGenerationResult {
         fun success(
             scheduleId: UUID,
             schedulingResult: SchedulingResult,
-            resourceAllocations: RoomAllocationResult,
             dataQuality: DataQualityMetrics
-        ) = Success(scheduleId, schedulingResult, resourceAllocations, dataQuality)
+        ) = Success(scheduleId, schedulingResult, dataQuality)
 
         fun failure(scheduleId: UUID, errorMessage: String, dataQuality: DataQualityMetrics?) =
             Failure(scheduleId, errorMessage, dataQuality)
@@ -470,7 +458,11 @@ data class PreferenceValidationRequest(
         professorId = professorId,
         courseId = courseId,
         preferredDates = preferredDates.mapNotNull {
-            try { LocalDate.parse(it) } catch (e: Exception) { null }
+            try {
+                LocalDate.parse(it)
+            } catch (e: Exception) {
+                null
+            }
         },
         priority = priority
     )
@@ -547,8 +539,10 @@ sealed class DataSyncResponse {
     companion object {
         fun withRegeneration(scheduleId: UUID, changes: DataChangesSummary, quality: DataQualityResponse) =
             WithRegeneration(scheduleId, changes, quality)
+
         fun dataOnly(scheduleId: UUID, changes: DataChangesSummary, quality: DataQualityResponse) =
             DataOnly(scheduleId, changes, quality)
+
         fun failure(scheduleId: UUID, message: String) = Failure(scheduleId, message)
     }
 }
@@ -649,8 +643,10 @@ sealed class ResourceReallocationResponse {
     companion object {
         fun success(scheduleId: UUID, result: ResourceOptimizationResult, analysis: CapacityAnalysisResult) =
             Success(scheduleId, result, analysis)
+
         fun infeasible(scheduleId: UUID, bottlenecks: List<ResourceBottleneck>, recommendations: List<String>) =
             Infeasible(scheduleId, bottlenecks, recommendations)
+
         fun failure(scheduleId: UUID, message: String) = Failure(scheduleId, message)
     }
 }
@@ -683,7 +679,7 @@ data class IntegrationMetadataResponse(
     val integratedAt: Instant
 ) {
     companion object {
-        fun empty() = IntegrationMetadataResponse(0L,  0, Instant.now())
+        fun empty() = IntegrationMetadataResponse(0L, 0, Instant.now())
     }
 }
 

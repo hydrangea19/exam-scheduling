@@ -1,6 +1,6 @@
 package mk.ukim.finki.examscheduling.publishingservice.service
 
-import mk.ukim.finki.examscheduling.publishingservice.controller.PublishedScheduleResponse
+import mk.ukim.finki.examscheduling.publishingservice.domain.PublishedScheduleResponse
 import mk.ukim.finki.examscheduling.publishingservice.repository.PublishedScheduleRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

@@ -21,6 +21,9 @@ class WebClientConfiguration(
     @Value("\${external-services.external-integration.base-url}")
     private lateinit var externalIntegrationBaseUrl: String
 
+    @Value("\${external-services.python-scheduling.base-url}")
+    private lateinit var pythonSchedulingBaseUrl: String
+
     @Bean("preferenceManagementWebClient")
     fun preferenceManagementWebClient(): WebClient {
         return WebClient.builder()
@@ -39,6 +42,17 @@ class WebClientConfiguration(
             .filter(addJwtTokenFilter())
             .codecs { configurer ->
                 configurer.defaultCodecs().maxInMemorySize(1024 * 1024)
+            }
+            .build()
+    }
+
+    @Bean("pythonSchedulingWebClient")
+    fun pythonSchedulingWebClient(): WebClient {
+        return WebClient.builder()
+            .baseUrl(pythonSchedulingBaseUrl)
+            .filter(addJwtTokenFilter())
+            .codecs { configurer ->
+                configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024)
             }
             .build()
     }
