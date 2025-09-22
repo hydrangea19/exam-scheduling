@@ -46,7 +46,7 @@ data class PreferenceSubmissionWindowClosedEvent @JsonCreator constructor(
 
 data class ProfessorPreferenceSubmittedEvent @JsonCreator constructor(
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("courseIds") val courseIds: List<CourseId>,
     @JsonProperty("preferences") val preferences: List<PreferenceDetails>,
@@ -69,7 +69,7 @@ data class ProfessorPreferenceSubmittedEvent @JsonCreator constructor(
 
 data class ProfessorPreferenceUpdatedEvent @JsonCreator constructor(
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("updatedPreferences") val updatedPreferences: List<PreferenceDetails>,
     @JsonProperty("previousVersion") val previousVersion: Int,
@@ -80,7 +80,7 @@ data class ProfessorPreferenceUpdatedEvent @JsonCreator constructor(
 
 data class ProfessorPreferenceWithdrawnEvent @JsonCreator constructor(
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("withdrawnBy") val withdrawnBy: String,
     @JsonProperty("withdrawalReason") val withdrawalReason: String,
@@ -90,7 +90,7 @@ data class ProfessorPreferenceWithdrawnEvent @JsonCreator constructor(
 
 data class PreferenceValidationFailedEvent @JsonCreator constructor(
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("validationErrors") val validationErrors: List<ValidationError>,
     @JsonProperty("validatedAt") val validatedAt: Instant = Instant.now(),
@@ -107,7 +107,7 @@ data class PreferenceValidationFailedEvent @JsonCreator constructor(
 
 data class PreferenceValidationSucceededEvent @JsonCreator constructor(
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("validationWarnings") val validationWarnings: List<ValidationError> = emptyList(),
     @JsonProperty("validatedAt") val validatedAt: Instant = Instant.now()

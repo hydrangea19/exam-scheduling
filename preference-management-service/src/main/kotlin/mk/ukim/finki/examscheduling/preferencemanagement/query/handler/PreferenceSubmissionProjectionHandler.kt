@@ -76,7 +76,7 @@ class PreferenceSubmissionProjectionHandler(
 
         val summary = PreferenceSubmissionSummary(
             submissionId = event.submissionId.value.toString(),
-            professorId = event.professorId.value.toString(),
+            professorId = event.professorId.toString(),
             examSessionPeriodId = event.examSessionPeriodId.value,
             academicYear = extractAcademicYear(event.examSessionPeriodId.value),
             examSession = extractExamSession(event.examSessionPeriodId.value),

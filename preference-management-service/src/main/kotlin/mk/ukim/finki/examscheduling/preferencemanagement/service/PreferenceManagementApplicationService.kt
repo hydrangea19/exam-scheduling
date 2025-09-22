@@ -1,14 +1,18 @@
 package mk.ukim.finki.examscheduling.preferencemanagement.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import mk.ukim.finki.examscheduling.preferencemanagement.domain.*
 import mk.ukim.finki.examscheduling.preferencemanagement.domain.enums.PreferenceLevel
 import mk.ukim.finki.examscheduling.preferencemanagement.query.*
+import mk.ukim.finki.examscheduling.preferencemanagement.query.repository.PreferenceSubmissionSummaryRepository
 import org.axonframework.commandhandling.gateway.CommandGateway
 import org.axonframework.messaging.responsetypes.ResponseTypes
 import org.axonframework.queryhandling.QueryGateway
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 import java.time.LocalTime
 import java.util.*
 import java.util.concurrent.CompletableFuture
@@ -21,6 +25,11 @@ class PreferenceManagementApplicationService(
 ) {
     private val logger = LoggerFactory.getLogger(PreferenceManagementApplicationService::class.java)
 
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var submissionRepository: PreferenceSubmissionSummaryRepository
 
     fun createExamSessionPeriod(request: CreateExamSessionPeriodRequest): CompletableFuture<String> {
         logger.info("Creating exam session period: {} {}", request.academicYear, request.examSession)
@@ -70,22 +79,70 @@ class PreferenceManagementApplicationService(
     }
 
     fun submitProfessorPreferences(request: SubmitPreferencesRequest): CompletableFuture<String> {
-        logger.info("Processing preference submission for professor: {}", request.professorId)
+        return CompletableFuture.supplyAsync {
+            val submissionId = UUID.randomUUID().toString()
 
-        val submissionId = SubmissionId()
-        val preferences = mapToPreferenceDetails(request.preferences)
+            // Extract time slots from request
+            val timePrefs = request.preferences.firstOrNull()?.timePreferences ?: emptyList()
+            val preferredSlots = timePrefs.filter { it.preferenceLevel != "UNAVAILABLE" }
+            val unavailableSlots = timePrefs.filter { it.preferenceLevel == "UNAVAILABLE" }
 
-        val command = SubmitProfessorPreferenceCommand(
-            submissionId = submissionId,
-            professorId = ProfessorId(request.professorId),
-            examSessionPeriodId = ExamSessionPeriodId(request.examSessionPeriodId),
-            preferences = preferences,
-            isUpdate = request.isUpdate,
-            previousVersion = request.previousVersion
-        )
+            // Create summary directly
+            val summary = PreferenceSubmissionSummary(
+                submissionId = submissionId,
+                professorId = request.professorId.toString(),
+                examSessionPeriodId = request.examSessionPeriodId,
+                academicYear = extractYear(request.examSessionPeriodId),
+                examSession = extractSession(request.examSessionPeriodId),
+                status = "SUBMITTED",
+                submissionVersion = 1,
+                totalTimePreferences = preferredSlots.size,
+                totalRoomPreferences = 0,
+                coursesCount = 1,
+                submittedAt = Instant.now(),
+                lastUpdatedAt = Instant.now(),
+                hasSpecialRequirements = !request.preferences.firstOrNull()?.specialRequirements.isNullOrBlank(),
 
-        return commandGateway.send<Any>(command)
-            .thenApply { submissionId.value.toString() }
+                preferredTimeSlotsJson = objectMapper.writeValueAsString(convertToFrontendFormat(preferredSlots)),
+                unavailableTimeSlotsJson = objectMapper.writeValueAsString(convertToFrontendFormat(unavailableSlots)),
+                additionalNotes = request.preferences.firstOrNull()?.specialRequirements
+            )
+
+            submissionRepository.save(summary)
+            submissionId
+        }
+    }
+
+    private fun convertToFrontendFormat(slots: List<TimeSlotPreferenceRequest>) =
+        slots.map { slot ->
+            mapOf(
+                "dayOfWeek" to convertNumberToDay(slot.dayOfWeek),
+                "startTime" to slot.startTime,
+                "endTime" to slot.endTime,
+                "priority" to if(slot.preferenceLevel == "PREFERRED") 1 else 3,
+                "reason" to slot.reason
+            )
+        }
+
+    private fun extractYear(sessionId: String): String {
+        return sessionId.split("_").firstOrNull() ?: "2025"
+    }
+
+    private fun extractSession(sessionId: String): String {
+        return sessionId.split("_").drop(1).joinToString("_")
+    }
+
+    private fun convertNumberToDay(dayNum: Int): String {
+        return when(dayNum) {
+            1 -> "MONDAY"
+            2 -> "TUESDAY"
+            3 -> "WEDNESDAY"
+            4 -> "THURSDAY"
+            5 -> "FRIDAY"
+            6 -> "SATURDAY"
+            7 -> "SUNDAY"
+            else -> "MONDAY"
+        }
     }
 
     fun updateProfessorPreferences(request: UpdatePreferencesRequest): CompletableFuture<Void> {
@@ -95,7 +152,7 @@ class PreferenceManagementApplicationService(
 
         val command = UpdateProfessorPreferenceCommand(
             submissionId = SubmissionId(request.submissionId),
-            professorId = ProfessorId(request.professorId),
+            professorId = request.professorId,
             examSessionPeriodId = ExamSessionPeriodId(request.examSessionPeriodId),
             updatedPreferences = updatedPreferences,
             updateReason = request.updateReason,
@@ -110,7 +167,7 @@ class PreferenceManagementApplicationService(
 
         val command = WithdrawPreferenceSubmissionCommand(
             submissionId = SubmissionId(request.submissionId),
-            professorId = ProfessorId(request.professorId),
+            professorId = request.professorId,
             examSessionPeriodId = ExamSessionPeriodId(request.examSessionPeriodId),
             withdrawnBy = request.withdrawnBy,
             withdrawalReason = request.withdrawalReason

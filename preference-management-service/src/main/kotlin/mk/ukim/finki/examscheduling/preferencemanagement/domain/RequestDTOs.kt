@@ -31,7 +31,7 @@ data class CloseSubmissionWindowRequest @JsonCreator constructor(
 )
 
 data class SubmitPreferencesRequest @JsonCreator constructor(
-    @JsonProperty("professorId") val professorId: UUID,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: String,
     @JsonProperty("preferences") val preferences: List<PreferenceDetailsRequest>,
     @JsonProperty("isUpdate") val isUpdate: Boolean = false,

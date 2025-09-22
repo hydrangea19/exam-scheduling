@@ -113,7 +113,7 @@ class AxonToKafkaEventPublisher(
         val kafkaEvent = mapOf(
             "eventType" to "ProfessorPreferenceSubmitted",
             "submissionId" to event.submissionId.value.toString(),
-            "professorId" to event.professorId.value.toString(),
+            "professorId" to event.professorId.toString(),
             "examSessionPeriodId" to event.examSessionPeriodId.value,
             "courseIds" to event.courseIds.map { it.value },
             "submissionVersion" to event.submissionVersion,
@@ -128,7 +128,7 @@ class AxonToKafkaEventPublisher(
 
         val auditEvent = mapOf(
             "action" to "PREFERENCE_SUBMITTED",
-            "performedBy" to event.professorId.value.toString(),
+            "performedBy" to event.professorId.toString(),
             "entityType" to "ProfessorPreferenceSubmission",
             "entityId" to event.submissionId.value.toString(),
             "changeDetails" to mapOf(
@@ -150,7 +150,7 @@ class AxonToKafkaEventPublisher(
         val kafkaEvent = mapOf(
             "eventType" to "ProfessorPreferenceUpdated",
             "submissionId" to event.submissionId.value.toString(),
-            "professorId" to event.professorId.value.toString(),
+            "professorId" to event.professorId.toString(),
             "examSessionPeriodId" to event.examSessionPeriodId.value,
             "previousVersion" to event.previousVersion,
             "newVersion" to event.newVersion,
@@ -163,7 +163,7 @@ class AxonToKafkaEventPublisher(
 
         val auditEvent = mapOf(
             "action" to "PREFERENCE_UPDATED",
-            "performedBy" to event.professorId.value.toString(),
+            "performedBy" to event.professorId.toString(),
             "entityType" to "ProfessorPreferenceSubmission",
             "entityId" to event.submissionId.value.toString(),
             "changeDetails" to mapOf(
@@ -184,7 +184,7 @@ class AxonToKafkaEventPublisher(
         val kafkaEvent = mapOf(
             "eventType" to "ProfessorPreferenceWithdrawn",
             "submissionId" to event.submissionId.value.toString(),
-            "professorId" to event.professorId.value.toString(),
+            "professorId" to event.professorId.toString(),
             "examSessionPeriodId" to event.examSessionPeriodId.value,
             "withdrawnBy" to event.withdrawnBy,
             "withdrawalReason" to event.withdrawalReason,
@@ -217,7 +217,7 @@ class AxonToKafkaEventPublisher(
         val kafkaEvent = mapOf(
             "eventType" to "PreferenceValidationFailed",
             "submissionId" to event.submissionId.value.toString(),
-            "professorId" to event.professorId.value.toString(),
+            "professorId" to event.professorId.toString(),
             "examSessionPeriodId" to event.examSessionPeriodId.value,
             "validationErrors" to event.validationErrors.map { error ->
                 mapOf(
@@ -240,14 +240,14 @@ class AxonToKafkaEventPublisher(
             "message" to "Preference validation failed with ${event.validationErrors.size} errors",
             "targetService" to "user-management-service",
             "metadata" to mapOf(
-                "professorId" to event.professorId.value.toString(),
+                "professorId" to event.professorId.toString(),
                 "submissionId" to event.submissionId.value.toString(),
                 "errorCount" to event.validationErrors.size,
                 "errors" to event.validationErrors.map { it.message }
             )
         )
 
-        eventPublisher.publishSystemNotification(notification, event.professorId.value.toString())
+        eventPublisher.publishSystemNotification(notification, event.professorId.toString())
     }
 
     @EventHandler
@@ -257,7 +257,7 @@ class AxonToKafkaEventPublisher(
         val kafkaEvent = mapOf(
             "eventType" to "PreferenceValidationSucceeded",
             "submissionId" to event.submissionId.value.toString(),
-            "professorId" to event.professorId.value.toString(),
+            "professorId" to event.professorId.toString(),
             "examSessionPeriodId" to event.examSessionPeriodId.value,
             "validationWarnings" to event.validationWarnings.map { warning ->
                 mapOf(
@@ -280,14 +280,14 @@ class AxonToKafkaEventPublisher(
                 "message" to "Preference validation passed with ${event.validationWarnings.size} warnings",
                 "targetService" to "user-management-service",
                 "metadata" to mapOf(
-                    "professorId" to event.professorId.value.toString(),
+                    "professorId" to event.professorId.toString(),
                     "submissionId" to event.submissionId.value.toString(),
                     "warningCount" to event.validationWarnings.size,
                     "warnings" to event.validationWarnings.map { it.message }
                 )
             )
 
-            eventPublisher.publishSystemNotification(notification, event.professorId.value.toString())
+            eventPublisher.publishSystemNotification(notification, event.professorId.toString())
         }
     }
 }

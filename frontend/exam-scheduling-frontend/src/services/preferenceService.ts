@@ -5,10 +5,39 @@ import axios, {AxiosError, type AxiosResponse} from 'axios';
 export interface SubmitPreferencesRequest {
     professorId?: string;
     examSessionPeriodId: string;
-    preferredTimeSlots: PreferredTimeSlot[];
-    unavailableTimeSlots: UnavailableTimeSlot[];
-    additionalNotes?: string;
+    preferences: PreferenceDetailsRequest[];
+    isUpdate?: boolean;
+    previousVersion?: number;
 }
+
+export interface PreferenceDetailsRequest {
+    courseId: string;
+    timePreferences: TimeSlotPreferenceRequest[];
+    roomPreferences?: RoomPreferenceRequest[];
+    durationPreference?: DurationPreferenceRequest;
+    specialRequirements?: string;
+}
+
+export interface TimeSlotPreferenceRequest {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    preferenceLevel: 'PREFERRED' | 'ACCEPTABLE' | 'NOT_PREFERRED' | 'NOT_AVAILABLE';
+    reason?: string;
+}
+
+export interface RoomPreferenceRequest {
+    roomId: string;
+    preferenceLevel: string;
+    reason?: string;
+}
+
+export interface DurationPreferenceRequest {
+    preferredDurationMinutes: number;
+    minimumDurationMinutes: number;
+    maximumDurationMinutes: number;
+}
+
 
 export interface PreferredTimeSlot {
     dayOfWeek: string;
@@ -67,8 +96,8 @@ export interface CloseSubmissionWindowRequest {
 export interface PreferenceSubmissionSummary {
     submissionId: string;
     professorId: string;
-    professorName: string;
-    professorEmail: string;
+    professorName?: string;  // Make optional since backend may not provide it
+    professorEmail?: string; // Make optional since backend may not provide it
     examSessionPeriodId: string;
     examSessionInfo: string;
     submittedAt: string;
@@ -78,29 +107,32 @@ export interface PreferenceSubmissionSummary {
     unavailableSlotsCount: number;
     hasAdditionalNotes: boolean;
     additionalNotes?: string;
-    preferredTimeSlots: PreferredTimeSlot[];
-    unavailableTimeSlots: UnavailableTimeSlot[];
+    preferredTimeSlots: TimeSlotData[]; // Changed to handle dynamic structure
+    unavailableTimeSlots: TimeSlotData[]; // Changed to handle dynamic structure
+}
+
+export interface TimeSlotData {
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+    priority?: number;
+    reason?: string;
+    preferenceLevel?: string;
+    [key: string]: any; // Allow additional dynamic properties
 }
 
 export interface ExamSessionPeriodView {
     examSessionPeriodId: string;
     academicYear: string;
     examSession: string;
-    startDate: string;
-    endDate: string;
-    description?: string;
-    isWindowOpen: boolean;
     submissionDeadline?: string;
-    instructions?: string;
-    createdAt: string;
-    createdBy: string;
-    windowOpenedAt?: string;
-    windowOpenedBy?: string;
-    windowClosedAt?: string;
-    windowClosedBy?: string;
-    windowClosedReason?: string;
     totalSubmissions: number;
     uniqueProfessors: number;
+    windowOpenedAt?: string;
+    windowClosedAt?: string;
+    createdAt: string;
+    description?: string;
+    windowOpen: boolean;
 }
 
 export interface PreferenceStatistics {

@@ -40,10 +40,28 @@ class ProfessorController(
                 submissionRepository.findByProfessorId(professorId.toString())
             }
 
+            val formattedPreferences = preferences.map { pref ->
+                mapOf(
+                    "submissionId" to pref.submissionId,
+                    "professorId" to pref.professorId,
+                    "examSessionPeriodId" to pref.examSessionPeriodId,
+                    "examSessionInfo" to "${pref.examSession} ${pref.academicYear}",
+                    "submittedAt" to pref.submittedAt?.toString(),
+                    "lastUpdatedAt" to pref.lastUpdatedAt.toString(),
+                    "status" to pref.status,
+                    "preferredSlotsCount" to pref.totalTimePreferences,
+                    "unavailableSlotsCount" to (pref.unavailableTimeSlots.size),
+                    "hasAdditionalNotes" to pref.hasSpecialRequirements,
+                    "additionalNotes" to pref.additionalNotes,
+                    "preferredTimeSlots" to pref.preferredTimeSlots,
+                    "unavailableTimeSlots" to pref.unavailableTimeSlots
+                )
+            }
+
             ResponseEntity.ok(
                 mapOf(
                     "success" to true,
-                    "preferences" to preferences,
+                    "preferences" to formattedPreferences,
                     "count" to preferences.size,
                     "sessionId" to sessionId,
                     "timestamp" to Instant.now()

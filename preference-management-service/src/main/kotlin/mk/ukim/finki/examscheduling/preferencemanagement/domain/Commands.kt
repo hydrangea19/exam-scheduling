@@ -7,11 +7,12 @@ import mk.ukim.finki.examscheduling.preferencemanagement.domain.enums.Validation
 import mk.ukim.finki.examscheduling.preferencemanagement.domain.enums.ValidationSeverity
 import org.axonframework.modelling.command.TargetAggregateIdentifier
 import java.time.Instant
+import java.util.*
 
 data class SubmitProfessorPreferenceCommand @JsonCreator constructor(
     @TargetAggregateIdentifier
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("preferences") val preferences: List<PreferenceDetails>,
     @JsonProperty("submissionTimestamp") val submissionTimestamp: Instant = Instant.now(),
@@ -61,7 +62,7 @@ data class ClosePreferenceSubmissionWindowCommand @JsonCreator constructor(
 data class UpdateProfessorPreferenceCommand @JsonCreator constructor(
     @TargetAggregateIdentifier
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("updatedPreferences") val updatedPreferences: List<PreferenceDetails>,
     @JsonProperty("updateTimestamp") val updateTimestamp: Instant = Instant.now(),
@@ -112,7 +113,7 @@ data class CreateExamSessionPeriodCommand @JsonCreator constructor(
 data class WithdrawPreferenceSubmissionCommand @JsonCreator constructor(
     @TargetAggregateIdentifier
     @JsonProperty("submissionId") val submissionId: SubmissionId,
-    @JsonProperty("professorId") val professorId: ProfessorId,
+    @JsonProperty("professorId") val professorId: UUID?,
     @JsonProperty("examSessionPeriodId") val examSessionPeriodId: ExamSessionPeriodId,
     @JsonProperty("withdrawnBy") val withdrawnBy: String,
     @JsonProperty("withdrawalReason") val withdrawalReason: String,

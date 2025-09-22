@@ -2,13 +2,28 @@ import React, {useEffect, useState} from 'react';
 import {
     type CloseSubmissionWindowRequest,
     type CreateExamSessionPeriodRequest,
-    type ExamSessionPeriodView,
     type OpenSubmissionWindowRequest,
     preferenceService
 } from '../services/preferenceService';
 
+interface ExamSessionPeriodViewUpdated {
+    examSessionPeriodId: string;
+    academicYear: string;
+    examSession: string;
+    submissionDeadline?: string;
+    totalSubmissions: number;
+    uniqueProfessors: number;
+    windowOpenedAt?: string;
+    windowClosedAt?: string;
+    createdAt: string;
+    description?: string;
+    windowOpen: boolean;  // Changed from isWindowOpen
+    instructions?: string;
+    windowClosedReason?: string;
+}
+
 const AdminExamSessions: React.FC = () => {
-    const [sessions, setSessions] = useState<ExamSessionPeriodView[]>([]);
+    const [sessions, setSessions] = useState<ExamSessionPeriodViewUpdated[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
     const [success, setSuccess] = useState<string>('');
@@ -16,7 +31,7 @@ const AdminExamSessions: React.FC = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showOpenWindowModal, setShowOpenWindowModal] = useState(false);
     const [showCloseWindowModal, setShowCloseWindowModal] = useState(false);
-    const [selectedSession, setSelectedSession] = useState<ExamSessionPeriodView | null>(null);
+    const [selectedSession, setSelectedSession] = useState<ExamSessionPeriodViewUpdated | null>(null);
 
     const [createForm, setCreateForm] = useState<CreateExamSessionPeriodRequest>({
         academicYear: '2024/2025',
@@ -49,7 +64,7 @@ const AdminExamSessions: React.FC = () => {
         try {
             setLoading(true);
             const sessionsData = await preferenceService.getAllExamSessionPeriods();
-            setSessions(sessionsData);
+            setSessions(sessionsData as ExamSessionPeriodViewUpdated[]);
         } catch (err: any) {
             setError(err.message || 'Failed to load exam sessions');
         } finally {
@@ -106,7 +121,14 @@ const AdminExamSessions: React.FC = () => {
 
         try {
             setSubmitting(true);
-            await preferenceService.closeSubmissionWindow(selectedSession.examSessionPeriodId, closeWindowForm);
+
+            const payload = {
+                examSessionPeriodId: selectedSession.examSessionPeriodId,
+                reason: closeWindowForm.reason,
+                closedBy: 'web'
+            };
+
+            await preferenceService.closeSubmissionWindow(selectedSession.examSessionPeriodId, payload);
             setSuccess('Submission window closed successfully!');
             setShowCloseWindowModal(false);
             resetCloseWindowForm();
@@ -152,20 +174,19 @@ const AdminExamSessions: React.FC = () => {
         resetCreateForm();
     };
 
-    const openOpenWindowModal = (session: ExamSessionPeriodView) => {
+    const openOpenWindowModal = (session: ExamSessionPeriodViewUpdated) => {
         setSelectedSession(session);
         setShowOpenWindowModal(true);
         setOpenWindowForm({
             examSessionPeriodId: session.examSessionPeriodId,
             submissionDeadline: '',
-            // instructions: '',
             academicYear: session.academicYear,
             examSession: session.examSession,
             openedBy: 'web'
         });
     };
 
-    const openCloseWindowModal = (session: ExamSessionPeriodView) => {
+    const openCloseWindowModal = (session: ExamSessionPeriodViewUpdated) => {
         setSelectedSession(session);
         setShowCloseWindowModal(true);
         setCloseWindowForm({
@@ -175,124 +196,146 @@ const AdminExamSessions: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="container mt-4 text-center">
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
+            <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+                <div className="text-center">
+                    <div className="spinner-border text-primary mb-3" style={{width: '3rem', height: '3rem'}} role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 className="text-muted">Loading exam sessions...</h5>
                 </div>
-                <p className="mt-2 text-muted">Loading exam sessions...</p>
             </div>
         );
     }
 
     return (
-        <div className="container mt-4">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h2 className="mb-1">Exam Session Management</h2>
-                    <p className="text-muted mb-0">Create and manage exam periods and preference submission windows</p>
-                </div>
-                <div className="d-flex gap-2">
-                    <button
-                        className="btn btn-outline-primary"
-                        onClick={() => fetchSessions()}
-                        disabled={loading}
-                    >
-                        <i className="bi bi-arrow-clockwise me-2"></i>
-                        Refresh
-                    </button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={openCreateModal}
-                    >
-                        <i className="bi bi-plus-circle me-2"></i>
-                        Create New Session
-                    </button>
+        <div className="container-fluid py-4 bg-light min-vh-100">
+            {/* Header Section */}
+            <div className="row mb-4">
+                <div className="col">
+                    <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 className="h3 mb-1 text-dark fw-bold">Exam Session Management</h1>
+                            <p className="text-muted mb-0 fs-6">
+                                Create and manage exam periods with preference submission windows
+                            </p>
+                        </div>
+                        <div className="d-flex gap-2">
+                            <button
+                                className="btn btn-outline-primary btn-sm px-3"
+                                onClick={() => fetchSessions()}
+                                disabled={loading}
+                            >
+                                <i className="bi bi-arrow-clockwise me-2"></i>
+                                Refresh
+                            </button>
+                            <button
+                                className="btn btn-primary btn-sm px-3"
+                                onClick={openCreateModal}
+                            >
+                                <i className="bi bi-plus-circle me-2"></i>
+                                New Session
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
+            {/* Alert Messages */}
             {error && (
-                <div className="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i className="bi bi-exclamation-triangle me-2"></i>
-                    {error}
-                    <button
-                        type="button"
-                        className="btn-close"
-                        onClick={() => setError('')}
-                        aria-label="Close"
-                    ></button>
+                <div className="row mb-4">
+                    <div className="col">
+                        <div className="alert alert-danger alert-dismissible fade show border-0 shadow-sm" role="alert">
+                            <div className="d-flex align-items-center">
+                                <i className="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                                <div className="flex-grow-1">{error}</div>
+                                <button
+                                    type="button"
+                                    className="btn-close"
+                                    onClick={() => setError('')}
+                                    aria-label="Close"
+                                ></button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {success && (
-                <div className="alert alert-success alert-dismissible fade show" role="alert">
-                    <i className="bi bi-check-circle me-2"></i>
-                    {success}
-                    <button
-                        type="button"
-                        className="btn-close"
-                        onClick={() => setSuccess('')}
-                        aria-label="Close"
-                    ></button>
+                <div className="row mb-4">
+                    <div className="col">
+                        <div className="alert alert-success alert-dismissible fade show border-0 shadow-sm" role="alert">
+                            <div className="d-flex align-items-center">
+                                <i className="bi bi-check-circle-fill me-2 fs-5"></i>
+                                <div className="flex-grow-1">{success}</div>
+                                <button
+                                    type="button"
+                                    className="btn-close"
+                                    onClick={() => setSuccess('')}
+                                    aria-label="Close"
+                                ></button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {/* Sessions Overview */}
-            <div className="row mb-4">
-                <div className="col-md-3">
-                    <div className="card bg-primary text-white">
+            {/* Statistics Overview */}
+            <div className="row mb-4 g-3">
+                <div className="col-lg-3 col-md-6">
+                    <div className="card border-0 shadow-sm h-100 bg-primary text-white">
                         <div className="card-body">
-                            <div className="d-flex justify-content-between">
+                            <div className="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 className="card-title">Total Sessions</h6>
-                                    <h3 className="mb-0">{sessions.length}</h3>
+                                    <p className="card-title mb-1 opacity-75 fs-6">Total Sessions</p>
+                                    <h2 className="mb-0 fw-bold">{sessions.length}</h2>
                                 </div>
-                                <div className="align-self-center">
-                                    <i className="bi bi-calendar-event display-4"></i>
+                                <div className="opacity-75">
+                                    <i className="bi bi-calendar-event fs-1"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="col-md-3">
-                    <div className="card bg-success text-white">
+                <div className="col-lg-3 col-md-6">
+                    <div className="card border-0 shadow-sm h-100 bg-success text-white">
                         <div className="card-body">
-                            <div className="d-flex justify-content-between">
+                            <div className="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 className="card-title">Active Windows</h6>
-                                    <h3 className="mb-0">{sessions.filter(s => s.isWindowOpen).length}</h3>
+                                    <p className="card-title mb-1 opacity-75 fs-6">Active Windows</p>
+                                    <h2 className="mb-0 fw-bold">{sessions.filter(s => s.windowOpen).length}</h2>
                                 </div>
-                                <div className="align-self-center">
-                                    <i className="bi bi-door-open display-4"></i>
+                                <div className="opacity-75">
+                                    <i className="bi bi-door-open fs-1"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="col-md-3">
-                    <div className="card bg-info text-white">
+                <div className="col-lg-3 col-md-6">
+                    <div className="card border-0 shadow-sm h-100 bg-info text-white">
                         <div className="card-body">
-                            <div className="d-flex justify-content-between">
+                            <div className="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 className="card-title">Total Submissions</h6>
-                                    <h3 className="mb-0">{sessions.reduce((sum, s) => sum + s.totalSubmissions, 0)}</h3>
+                                    <p className="card-title mb-1 opacity-75 fs-6">Total Submissions</p>
+                                    <h2 className="mb-0 fw-bold">{sessions.reduce((sum, s) => sum + s.totalSubmissions, 0)}</h2>
                                 </div>
-                                <div className="align-self-center">
-                                    <i className="bi bi-file-earmark-text display-4"></i>
+                                <div className="opacity-75">
+                                    <i className="bi bi-file-earmark-text fs-1"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="col-md-3">
-                    <div className="card bg-warning text-white">
+                <div className="col-lg-3 col-md-6">
+                    <div className="card border-0 shadow-sm h-100 bg-warning text-white">
                         <div className="card-body">
-                            <div className="d-flex justify-content-between">
+                            <div className="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 className="card-title">Participating Professors</h6>
-                                    <h3 className="mb-0">{sessions.reduce((sum, s) => sum + s.uniqueProfessors, 0)}</h3>
+                                    <p className="card-title mb-1 opacity-75 fs-6">Active Professors</p>
+                                    <h2 className="mb-0 fw-bold">{sessions.reduce((sum, s) => sum + s.uniqueProfessors, 0)}</h2>
                                 </div>
-                                <div className="align-self-center">
-                                    <i className="bi bi-people display-4"></i>
+                                <div className="opacity-75">
+                                    <i className="bi bi-people fs-1"></i>
                                 </div>
                             </div>
                         </div>
@@ -300,17 +343,15 @@ const AdminExamSessions: React.FC = () => {
                 </div>
             </div>
 
-            {/* Sessions List */}
+            {/* Sessions Grid */}
             <div className="row">
                 {sessions.length === 0 ? (
                     <div className="col">
-                        <div className="card text-center">
-                            <div className="card-body py-5">
-                                <div className="display-4 text-muted mb-3">
-                                    <i className="bi bi-calendar-x"></i>
-                                </div>
-                                <h4 className="text-muted">No Exam Sessions</h4>
-                                <p className="text-muted">
+                        <div className="card border-0 shadow-sm text-center py-5">
+                            <div className="card-body">
+                                <i className="bi bi-calendar-x display-1 text-muted mb-3"></i>
+                                <h4 className="text-muted mb-3">No Exam Sessions</h4>
+                                <p className="text-muted mb-4">
                                     Create your first exam session to start managing preference submissions.
                                 </p>
                                 <button
@@ -325,103 +366,110 @@ const AdminExamSessions: React.FC = () => {
                     </div>
                 ) : (
                     sessions.map((session) => (
-                        <div key={session.examSessionPeriodId} className="col-lg-6 mb-4">
-                            <div className="card h-100 border-0 shadow-sm">
-                                <div className="card-header bg-light border-0">
+                        <div key={session.examSessionPeriodId} className="col-xl-6 col-lg-8 col-12 mb-4">
+                            <div className="card border-0 shadow-sm h-100">
+                                <div className="card-header bg-white border-bottom">
                                     <div className="d-flex justify-content-between align-items-center">
-                                        <h5 className="mb-0">
-                                            {session.examSession} {session.academicYear}
-                                        </h5>
-                                        <span className={`badge ${
-                                            session.isWindowOpen ? 'bg-success' : 'bg-secondary'
+                                        <div>
+                                            <h5 className="mb-1 fw-bold text-dark">
+                                                {session.examSession} {session.academicYear}
+                                            </h5>
+                                            <small className="text-muted">
+                                                Created {new Date(session.createdAt).toLocaleDateString()}
+                                            </small>
+                                        </div>
+                                        <span className={`badge rounded-pill px-3 py-2 ${
+                                            session.windowOpen ? 'bg-success' : 'bg-secondary'
                                         }`}>
-                                            {session.isWindowOpen ? 'Window Open' : 'Window Closed'}
+                                            <i className={`bi ${session.windowOpen ? 'bi-door-open' : 'bi-door-closed'} me-1`}></i>
+                                            {session.windowOpen ? 'Window Open' : 'Window Closed'}
                                         </span>
                                     </div>
                                 </div>
-                                <div className="card-body">
-                                    <p className="text-muted mb-3">
-                                        {session.description}
-                                    </p>
 
+                                <div className="card-body">
                                     <div className="row text-center mb-3">
                                         <div className="col-6">
-                                            <div className="border-end">
-                                                <div className="h5 text-primary mb-1">{session.totalSubmissions}</div>
+                                            <div className="border-end pe-3">
+                                                <h4 className="text-primary mb-1 fw-bold">{session.totalSubmissions}</h4>
                                                 <small className="text-muted">Submissions</small>
                                             </div>
                                         </div>
                                         <div className="col-6">
-                                            <div className="h5 text-success mb-1">{session.uniqueProfessors}</div>
-                                            <small className="text-muted">Professors</small>
+                                            <div className="ps-3">
+                                                <h4 className="text-success mb-1 fw-bold">{session.uniqueProfessors}</h4>
+                                                <small className="text-muted">Professors</small>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="mb-3">
-                                        <small className="text-muted d-block">
-                                            <i className="bi bi-calendar-range me-1"></i>
-                                            Exam
-                                            Period: {new Date(session.startDate).toLocaleDateString()} - {new Date(session.endDate).toLocaleDateString()}
-                                        </small>
-                                        <small className="text-muted d-block">
-                                            <i className="bi bi-person me-1"></i>
-                                            Created
-                                            by: {session.createdBy} on {new Date(session.createdAt).toLocaleDateString()}
-                                        </small>
-                                        {session.submissionDeadline && (
-                                            <small className="text-danger d-block">
-                                                <i className="bi bi-clock me-1"></i>
-                                                Submission
-                                                Deadline: {new Date(session.submissionDeadline).toLocaleString()}
-                                            </small>
-                                        )}
-                                    </div>
+                                    {session.description && (
+                                        <div className="mb-3">
+                                            <div className="bg-light rounded p-3">
+                                                <small className="text-muted">{session.description}</small>
+                                            </div>
+                                        </div>
+                                    )}
 
-                                    {session.isWindowOpen && session.instructions && (
-                                        <div className="alert alert-info py-2 px-3 mb-3">
-                                            <small>
+                                    {session.submissionDeadline && (
+                                        <div className="mb-3">
+                                            <div className={`alert ${session.windowOpen ? 'alert-warning' : 'alert-info'} mb-0 py-2`}>
+                                                <i className="bi bi-clock me-1"></i>
+                                                <small>
+                                                    <strong>Deadline:</strong> {new Date(session.submissionDeadline).toLocaleString()}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {session.windowOpen && session.instructions && (
+                                        <div className="mb-3">
+                                            <div className="alert alert-info py-2">
                                                 <i className="bi bi-info-circle me-1"></i>
-                                                <strong>Instructions:</strong> {session.instructions}
-                                            </small>
+                                                <small><strong>Instructions:</strong> {session.instructions}</small>
+                                            </div>
                                         </div>
                                     )}
 
                                     {session.windowClosedReason && (
-                                        <div className="alert alert-warning py-2 px-3 mb-3">
-                                            <small>
+                                        <div className="mb-3">
+                                            <div className="alert alert-warning py-2">
                                                 <i className="bi bi-exclamation-triangle me-1"></i>
-                                                <strong>Closed:</strong> {session.windowClosedReason}
-                                            </small>
+                                                <small><strong>Closure Reason:</strong> {session.windowClosedReason}</small>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                                <div className="card-footer bg-light border-0">
+
+                                <div className="card-footer bg-white border-top">
                                     <div className="d-flex justify-content-between align-items-center">
-                                        {session.isWindowOpen ? (
-                                            <button
-                                                className="btn btn-outline-danger btn-sm"
-                                                onClick={() => openCloseWindowModal(session)}
-                                            >
-                                                <i className="bi bi-door-closed me-2"></i>
-                                                Close Window
-                                            </button>
-                                        ) : (
-                                            <button
-                                                className="btn btn-outline-success btn-sm"
-                                                onClick={() => openOpenWindowModal(session)}
-                                            >
-                                                <i className="bi bi-door-open me-2"></i>
-                                                Open Window
-                                            </button>
-                                        )}
+                                        <div>
+                                            {session.windowOpen ? (
+                                                <button
+                                                    className="btn btn-outline-danger btn-sm"
+                                                    onClick={() => openCloseWindowModal(session)}
+                                                >
+                                                    <i className="bi bi-door-closed me-1"></i>
+                                                    Close Window
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    className="btn btn-outline-success btn-sm"
+                                                    onClick={() => openOpenWindowModal(session)}
+                                                >
+                                                    <i className="bi bi-door-open me-1"></i>
+                                                    Open Window
+                                                </button>
+                                            )}
+                                        </div>
                                         <div className="btn-group">
                                             <button className="btn btn-outline-primary btn-sm">
-                                                <i className="bi bi-eye me-2"></i>
-                                                View Details
+                                                <i className="bi bi-eye me-1"></i>
+                                                Details
                                             </button>
                                             <button className="btn btn-outline-info btn-sm">
-                                                <i className="bi bi-graph-up me-2"></i>
-                                                Statistics
+                                                <i className="bi bi-graph-up me-1"></i>
+                                                Analytics
                                             </button>
                                         </div>
                                     </div>
@@ -434,26 +482,25 @@ const AdminExamSessions: React.FC = () => {
 
             {/* Create Session Modal */}
             {showCreateModal && (
-                <div className="modal fade show" style={{display: 'block', backgroundColor: 'rgba(0,0,0,0.5)'}}>
-                    <div className="modal-dialog">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">
+                <div className="modal fade show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+                    <div className="modal-dialog modal-lg">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header bg-primary text-white">
+                                <h5 className="modal-title fw-bold">
                                     <i className="bi bi-plus-circle me-2"></i>
                                     Create New Exam Session
                                 </h5>
                                 <button
                                     type="button"
-                                    className="btn-close"
+                                    className="btn-close btn-close-white"
                                     onClick={() => setShowCreateModal(false)}
                                 ></button>
                             </div>
-                            <div className="modal-body">
+                            <div className="modal-body p-4">
                                 <div className="row">
                                     <div className="col-md-6">
                                         <div className="form-group mb-3">
-                                            <label className="form-label">Academic Year <span
-                                                className="text-danger">*</span></label>
+                                            <label className="form-label fw-semibold">Academic Year <span className="text-danger">*</span></label>
                                             <input
                                                 type="text"
                                                 className="form-control"
@@ -469,8 +516,7 @@ const AdminExamSessions: React.FC = () => {
                                     </div>
                                     <div className="col-md-6">
                                         <div className="form-group mb-3">
-                                            <label className="form-label">Exam Session <span
-                                                className="text-danger">*</span></label>
+                                            <label className="form-label fw-semibold">Exam Session <span className="text-danger">*</span></label>
                                             <select
                                                 className="form-select"
                                                 value={createForm.examSession}
@@ -493,8 +539,7 @@ const AdminExamSessions: React.FC = () => {
                                 <div className="row">
                                     <div className="col-md-6">
                                         <div className="form-group mb-3">
-                                            <label className="form-label">Start Date <span
-                                                className="text-danger">*</span></label>
+                                            <label className="form-label fw-semibold">Planned Start Date <span className="text-danger">*</span></label>
                                             <input
                                                 type="date"
                                                 className="form-control"
@@ -509,8 +554,7 @@ const AdminExamSessions: React.FC = () => {
                                     </div>
                                     <div className="col-md-6">
                                         <div className="form-group mb-3">
-                                            <label className="form-label">End Date <span
-                                                className="text-danger">*</span></label>
+                                            <label className="form-label fw-semibold">Planned End Date <span className="text-danger">*</span></label>
                                             <input
                                                 type="date"
                                                 className="form-control"
@@ -526,7 +570,7 @@ const AdminExamSessions: React.FC = () => {
                                 </div>
 
                                 <div className="form-group mb-3">
-                                    <label className="form-label">Description (Optional)</label>
+                                    <label className="form-label fw-semibold">Description (Optional)</label>
                                     <textarea
                                         className="form-control"
                                         rows={3}
@@ -536,10 +580,10 @@ const AdminExamSessions: React.FC = () => {
                                     />
                                 </div>
                             </div>
-                            <div className="modal-footer">
+                            <div className="modal-footer bg-light">
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="btn btn-outline-secondary"
                                     onClick={() => setShowCreateModal(false)}
                                 >
                                     Cancel
@@ -562,30 +606,32 @@ const AdminExamSessions: React.FC = () => {
 
             {/* Open Submission Window Modal */}
             {showOpenWindowModal && selectedSession && (
-                <div className="modal fade show" style={{display: 'block', backgroundColor: 'rgba(0,0,0,0.5)'}}>
+                <div className="modal fade show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
                     <div className="modal-dialog">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header bg-success text-white">
+                                <h5 className="modal-title fw-bold">
                                     <i className="bi bi-door-open me-2"></i>
                                     Open Submission Window
                                 </h5>
                                 <button
                                     type="button"
-                                    className="btn-close"
+                                    className="btn-close btn-close-white"
                                     onClick={() => setShowOpenWindowModal(false)}
                                 ></button>
                             </div>
-                            <div className="modal-body">
-                                <div className="alert alert-info">
-                                    <strong>Session:</strong> {selectedSession.examSession} {selectedSession.academicYear}<br/>
-                                    <strong>Exam
-                                        Period:</strong> {new Date(selectedSession.startDate).toLocaleDateString()} - {new Date(selectedSession.endDate).toLocaleDateString()}
+                            <div className="modal-body p-4">
+                                <div className="alert alert-info border-0">
+                                    <div className="d-flex align-items-center">
+                                        <i className="bi bi-info-circle me-2"></i>
+                                        <div>
+                                            <strong>Session:</strong> {selectedSession.examSession} {selectedSession.academicYear}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="form-group mb-3">
-                                    <label className="form-label">Submission Deadline <span
-                                        className="text-danger">*</span></label>
+                                    <label className="form-label fw-semibold">Submission Deadline <span className="text-danger">*</span></label>
                                     <input
                                         type="datetime-local"
                                         className="form-control"
@@ -600,25 +646,11 @@ const AdminExamSessions: React.FC = () => {
                                         Professors must submit their preferences before this deadline
                                     </small>
                                 </div>
-                                {/*
-                                <div className="form-group mb-3">
-                                    <label className="form-label">Instructions (Optional)</label>
-                                    <textarea
-                                        className="form-control"
-                                        rows={4}
-                                        value={openWindowForm.instructions}
-                                        onChange={(e) => setOpenWindowForm({
-                                            ...openWindowForm,
-                                            instructions: e.target.value
-                                        })}
-                                        placeholder="Special instructions for professors submitting preferences..."
-                                    />
-                                </div>*/}
                             </div>
-                            <div className="modal-footer">
+                            <div className="modal-footer bg-light">
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="btn btn-outline-secondary"
                                     onClick={() => setShowOpenWindowModal(false)}
                                 >
                                     Cancel
@@ -641,11 +673,11 @@ const AdminExamSessions: React.FC = () => {
 
             {/* Close Submission Window Modal */}
             {showCloseWindowModal && selectedSession && (
-                <div className="modal fade show" style={{display: 'block', backgroundColor: 'rgba(0,0,0,0.5)'}}>
+                <div className="modal fade show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
                     <div className="modal-dialog">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title text-warning">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header bg-warning text-dark">
+                                <h5 className="modal-title fw-bold">
                                     <i className="bi bi-exclamation-triangle me-2"></i>
                                     Close Submission Window
                                 </h5>
@@ -655,17 +687,23 @@ const AdminExamSessions: React.FC = () => {
                                     onClick={() => setShowCloseWindowModal(false)}
                                 ></button>
                             </div>
-                            <div className="modal-body">
-                                <div className="alert alert-warning">
-                                    Are you sure you want to close the submission window
-                                    for <strong>{selectedSession.examSession} {selectedSession.academicYear}</strong>?
-                                    <br/>
-                                    <small>Current
-                                        submissions: {selectedSession.totalSubmissions} from {selectedSession.uniqueProfessors} professors</small>
+                            <div className="modal-body p-4">
+                                <div className="alert alert-warning border-0">
+                                    <div className="d-flex align-items-start">
+                                        <i className="bi bi-exclamation-triangle me-2 mt-1"></i>
+                                        <div>
+                                            Are you sure you want to close the submission window
+                                            for <strong>{selectedSession.examSession} {selectedSession.academicYear}</strong>?
+                                            <br/>
+                                            <small className="text-muted">
+                                                Current submissions: {selectedSession.totalSubmissions} from {selectedSession.uniqueProfessors} professors
+                                            </small>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="form-group mb-3">
-                                    <label className="form-label">Reason for closing (Optional)</label>
+                                    <label className="form-label fw-semibold">Reason for closing (Optional)</label>
                                     <textarea
                                         className="form-control"
                                         rows={3}
@@ -678,10 +716,10 @@ const AdminExamSessions: React.FC = () => {
                                     />
                                 </div>
                             </div>
-                            <div className="modal-footer">
+                            <div className="modal-footer bg-light">
                                 <button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    className="btn btn-outline-secondary"
                                     onClick={() => setShowCloseWindowModal(false)}
                                 >
                                     Cancel

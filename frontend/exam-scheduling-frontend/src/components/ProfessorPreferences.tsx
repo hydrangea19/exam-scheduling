@@ -4,7 +4,7 @@ import {
     preferenceService,
     type PreferenceSubmissionSummary,
     type PreferredTimeSlot,
-    type SubmitPreferencesRequest,
+    type SubmitPreferencesRequest, type TimeSlotPreferenceRequest,
     type UnavailableTimeSlot,
     type UpdatePreferencesRequest,
     type WithdrawPreferencesRequest
@@ -30,6 +30,8 @@ const ProfessorPreferences: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState('available');
     const [activeModalTab, setActiveModalTab] = useState('preferred');
+    const [expandedPreference, setExpandedPreference] = useState<string | null>(null);
+
 
     useEffect(() => {
         fetchData();
@@ -57,11 +59,34 @@ const ProfessorPreferences: React.FC = () => {
 
         try {
             setSubmitting(true);
+
+            const timePreferences: TimeSlotPreferenceRequest[] = [
+                ...preferredSlots.map(slot => ({
+                    dayOfWeek: convertDayToNumber(slot.dayOfWeek),
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    preferenceLevel: convertPriorityToLevel(slot.priority),
+                    reason: undefined
+                })),
+                ...unavailableSlots.map(slot => ({
+                    dayOfWeek: convertDayToNumber(slot.dayOfWeek),
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    preferenceLevel: 'UNAVAILABLE' as const,
+                    reason: slot.reason
+                }))
+            ];
+
             const request: SubmitPreferencesRequest = {
                 examSessionPeriodId: selectedSession.examSessionPeriodId,
-                preferredTimeSlots: preferredSlots,
-                unavailableTimeSlots: unavailableSlots,
-                additionalNotes: additionalNotes || undefined
+                preferences: [{
+                    courseId: "GENERAL_PREFERENCES",
+                    timePreferences: timePreferences,
+                    roomPreferences: [],
+                    specialRequirements: additionalNotes || undefined
+                }],
+                isUpdate: false,
+                previousVersion: 0
             };
 
             await preferenceService.submitMyPreferences(request);
@@ -76,17 +101,59 @@ const ProfessorPreferences: React.FC = () => {
         }
     };
 
+    const convertDayToNumber = (dayName: string): number => {
+        const dayMap: Record<string, number> = {
+            'MONDAY': 1,
+            'TUESDAY': 2,
+            'WEDNESDAY': 3,
+            'THURSDAY': 4,
+            'FRIDAY': 5,
+            'SATURDAY': 6,
+            'SUNDAY': 7
+        };
+        return dayMap[dayName] || 1;
+    };
+
+    const convertPriorityToLevel = (priority: number): 'PREFERRED' | 'ACCEPTABLE' | 'NOT_PREFERRED' => {
+        if (priority <= 2) return 'PREFERRED';
+        if (priority <= 3) return 'ACCEPTABLE';
+        return 'NOT_PREFERRED';
+    };
+
     const handleUpdatePreferences = async () => {
         if (!selectedSubmission) return;
 
         try {
             setSubmitting(true);
+
+            const timePreferences: TimeSlotPreferenceRequest[] = [
+                ...preferredSlots.map(slot => ({
+                    dayOfWeek: convertDayToNumber(slot.dayOfWeek),
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    preferenceLevel: convertPriorityToLevel(slot.priority),
+                    reason: undefined
+                })),
+                ...unavailableSlots.map(slot => ({
+                    dayOfWeek: convertDayToNumber(slot.dayOfWeek),
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    preferenceLevel: 'UNAVAILABLE' as const,
+                    reason: slot.reason
+                }))
+            ];
+
             const request: UpdatePreferencesRequest = {
                 professorId: selectedSubmission.professorId,
                 examSessionPeriodId: selectedSubmission.examSessionPeriodId,
-                preferredTimeSlots: preferredSlots,
-                unavailableTimeSlots: unavailableSlots,
-                additionalNotes: additionalNotes || undefined
+                updatedPreferences: [{
+                    courseId: "GENERAL_PREFERENCES",
+                    timePreferences: timePreferences,
+                    roomPreferences: [],
+                    specialRequirements: additionalNotes || undefined
+                }],
+                updateReason: "Updated via UI",
+                expectedVersion: 1
             };
 
             await preferenceService.updatePreferences(selectedSubmission.submissionId, request);
@@ -124,9 +191,10 @@ const ProfessorPreferences: React.FC = () => {
     };
 
     const openSubmitModal = (session: ExamSessionPeriodView) => {
+        console.log("Opening modal with session:", session);
         setSelectedSession(session);
         setShowSubmitModal(true);
-        resetForm();
+        //resetForm();
     };
 
     const openUpdateModal = (submission: PreferenceSubmissionSummary) => {
@@ -308,10 +376,6 @@ const ProfessorPreferences: React.FC = () => {
                                             </p>
 
                                             <div className="mb-3">
-                                                <small className="text-muted d-block">
-                                                    <i className="bi bi-calendar-range me-1"></i>
-                                                    {new Date(session.startDate).toLocaleDateString()} - {new Date(session.endDate).toLocaleDateString()}
-                                                </small>
                                                 {session.submissionDeadline && (
                                                     <small className="text-danger d-block">
                                                         <i className="bi bi-clock me-1"></i>
@@ -347,65 +411,56 @@ const ProfessorPreferences: React.FC = () => {
                                 </div>
                                 <h4 className="text-muted">No Submitted Preferences</h4>
                                 <p className="text-muted">
-                                    You haven't submitted any preferences yet. Check the Available Sessions tab to
-                                    submit your preferences.
+                                    You haven't submitted any preferences yet.
                                 </p>
                             </div>
                         </div>
                     ) : (
-                        <div className="accordion" id="preferencesAccordion">
-                            {myPreferences.map((submission, index) => (
-                                <div key={submission.submissionId} className="accordion-item">
-                                    <h2 className="accordion-header" id={`heading${index}`}>
-                                        <button
-                                            className="accordion-button collapsed"
-                                            type="button"
-                                            data-bs-toggle="collapse"
-                                            data-bs-target={`#collapse${index}`}
-                                            aria-expanded="false"
-                                            aria-controls={`collapse${index}`}
-                                        >
-                                            <div
-                                                className="d-flex justify-content-between align-items-center w-100 me-3">
-                                                <div>
-                                                    <strong>{submission.examSessionInfo}</strong>
-                                                    <span className="text-muted ms-2">
-                                                        Submitted {new Date(submission.submittedAt).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                <span className={`badge ${
-                                                    submission.status === 'SUBMITTED' ? 'bg-success' :
-                                                        submission.status === 'UPDATED' ? 'bg-info' : 'bg-warning'
-                                                }`}>
-                                                    {submission.status}
-                                                </span>
-                                            </div>
-                                        </button>
-                                    </h2>
+                        <div className="space-y-4">
+                            {myPreferences.map((submission) => (
+                                <div key={submission.submissionId} className="card">
                                     <div
-                                        id={`collapse${index}`}
-                                        className="accordion-collapse collapse"
-                                        aria-labelledby={`heading${index}`}
-                                        data-bs-parent="#preferencesAccordion"
+                                        className="card-header cursor-pointer"
+                                        onClick={() => setExpandedPreference(
+                                            expandedPreference === submission.submissionId ? null : submission.submissionId
+                                        )}
+                                        style={{cursor: 'pointer'}}
                                     >
-                                        <div className="accordion-body">
+                                        <div className="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>{submission.examSessionInfo || 'Exam Session'}</strong>
+                                                <span className="text-muted ms-2">
+                                        Submitted {new Date(submission.submittedAt).toLocaleDateString()}
+                                    </span>
+                                            </div>
+                                            <span className={`badge ${
+                                                submission.status === 'SUBMITTED' ? 'bg-success' :
+                                                    submission.status === 'UPDATED' ? 'bg-info' : 'bg-warning'
+                                            }`}>
+                                    {submission.status}
+                                </span>
+                                        </div>
+                                    </div>
+
+                                    {expandedPreference === submission.submissionId && (
+                                        <div className="card-body">
                                             <div className="row">
                                                 <div className="col-md-6">
                                                     <h6 className="text-primary">
                                                         <i className="bi bi-heart me-2"></i>
-                                                        Preferred Time Slots ({submission.preferredSlotsCount})
+                                                        Preferred Time Slots ({submission.preferredSlotsCount || 0})
                                                     </h6>
-                                                    {submission.preferredTimeSlots.length > 0 ? (
+                                                    {submission.preferredTimeSlots && submission.preferredTimeSlots.length > 0 ? (
                                                         <ul className="list-group list-group-flush mb-3">
                                                             {submission.preferredTimeSlots.map((slot, i) => (
                                                                 <li key={i} className="list-group-item px-0">
                                                                     <div className="d-flex justify-content-between">
-                                                                        <span>
-                                                                            <strong>{slot.dayOfWeek}</strong> {slot.startTime}-{slot.endTime}
-                                                                        </span>
-                                                                        <span className="badge bg-outline-primary">
-                                                                            Priority {slot.priority}
-                                                                        </span>
+                                                            <span>
+                                                                <strong>{slot.dayOfWeek}</strong> {slot.startTime}-{slot.endTime}
+                                                            </span>
+                                                                        <span className="badge bg-primary">
+                                                                Priority {slot.priority}
+                                                            </span>
                                                                     </div>
                                                                 </li>
                                                             ))}
@@ -414,12 +469,13 @@ const ProfessorPreferences: React.FC = () => {
                                                         <p className="text-muted">No preferred slots specified</p>
                                                     )}
                                                 </div>
+
                                                 <div className="col-md-6">
                                                     <h6 className="text-danger">
                                                         <i className="bi bi-x-circle me-2"></i>
-                                                        Unavailable Time Slots ({submission.unavailableSlotsCount})
+                                                        Unavailable Time Slots ({submission.unavailableSlotsCount || 0})
                                                     </h6>
-                                                    {submission.unavailableTimeSlots.length > 0 ? (
+                                                    {submission.unavailableTimeSlots && submission.unavailableTimeSlots.length > 0 ? (
                                                         <ul className="list-group list-group-flush mb-3">
                                                             {submission.unavailableTimeSlots.map((slot, i) => (
                                                                 <li key={i} className="list-group-item px-0">
@@ -439,37 +495,8 @@ const ProfessorPreferences: React.FC = () => {
                                                     )}
                                                 </div>
                                             </div>
-
-                                            {submission.hasAdditionalNotes && submission.additionalNotes && (
-                                                <div className="mb-3">
-                                                    <h6 className="text-info">
-                                                        <i className="bi bi-chat-text me-2"></i>
-                                                        Additional Notes
-                                                    </h6>
-                                                    <div className="bg-light p-3 rounded">
-                                                        {submission.additionalNotes}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="d-flex gap-2">
-                                                <button
-                                                    className="btn btn-outline-primary btn-sm"
-                                                    onClick={() => openUpdateModal(submission)}
-                                                >
-                                                    <i className="bi bi-pencil me-2"></i>
-                                                    Update
-                                                </button>
-                                                <button
-                                                    className="btn btn-outline-danger btn-sm"
-                                                    onClick={() => openWithdrawModal(submission)}
-                                                >
-                                                    <i className="bi bi-trash me-2"></i>
-                                                    Withdraw
-                                                </button>
-                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -497,7 +524,6 @@ const ProfessorPreferences: React.FC = () => {
                                 {selectedSession && (
                                     <div className="alert alert-info mb-4">
                                         <strong>Session:</strong> {selectedSession.examSession} {selectedSession.academicYear}<br/>
-                                        <strong>Period:</strong> {new Date(selectedSession.startDate).toLocaleDateString()} - {new Date(selectedSession.endDate).toLocaleDateString()}
                                         {selectedSession.submissionDeadline && (
                                             <>
                                                 <br/>

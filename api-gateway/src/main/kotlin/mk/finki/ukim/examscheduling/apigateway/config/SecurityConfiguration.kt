@@ -39,7 +39,7 @@ class SecurityConfiguration(
 
                     // Admin-only endpoints across all services
                     .pathMatchers("/api/admin/**").hasRole("ADMIN")
-                    .pathMatchers("/api/users/**").hasRole("ADMIN")
+                    .pathMatchers("/api/users/**").hasAnyRole("ADMIN", "PROFESSOR")
 
                     // Professor and admin endpoints
                     .pathMatchers("/api/professor/**").hasAnyRole("ADMIN", "PROFESSOR")

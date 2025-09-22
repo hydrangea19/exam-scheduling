@@ -10,6 +10,7 @@ import org.axonframework.modelling.command.AggregateLifecycle
 import org.axonframework.spring.stereotype.Aggregate
 import org.slf4j.LoggerFactory
 import java.time.Instant
+import java.util.*
 
 @Aggregate
 class ProfessorPreferenceSubmissionAggregate {
@@ -17,7 +18,7 @@ class ProfessorPreferenceSubmissionAggregate {
     @AggregateIdentifier
     private lateinit var submissionId: SubmissionId
 
-    private lateinit var professorId: ProfessorId
+    private var professorId: UUID? = null
     private lateinit var examSessionPeriodId: ExamSessionPeriodId
     private var preferences: MutableList<PreferenceDetails> = mutableListOf()
     private var submissionVersion: Int = 0

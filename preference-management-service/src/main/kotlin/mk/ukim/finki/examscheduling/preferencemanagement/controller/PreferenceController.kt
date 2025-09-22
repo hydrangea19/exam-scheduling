@@ -201,10 +201,31 @@ class PreferenceController(
             val preferences = submissionRepository.findByExamSessionPeriodId(sessionId)
             val statistics = statisticsRepository.findByExamSessionPeriodId(sessionId)
 
+            val formattedPreferences = preferences.map { pref ->
+
+                mapOf(
+                    "submissionId" to pref.submissionId,
+                    "professorId" to pref.professorId,
+                    "professorName" to "Professor ${pref.professorId.take(8)}", // Placeholder
+                    "professorEmail" to "${pref.professorId.take(8)}@university.edu", // Placeholder
+                    "examSessionPeriodId" to pref.examSessionPeriodId,
+                    "examSessionInfo" to "${pref.examSession} ${pref.academicYear}",
+                    "submittedAt" to pref.submittedAt?.toString(),
+                    "lastUpdatedAt" to pref.lastUpdatedAt.toString(),
+                    "status" to pref.status,
+                    "preferredSlotsCount" to pref.totalTimePreferences,
+                    "unavailableSlotsCount" to pref.unavailableTimeSlots.size,
+                    "hasAdditionalNotes" to pref.hasSpecialRequirements,
+                    "additionalNotes" to pref.additionalNotes,
+                    "preferredTimeSlots" to pref.preferredTimeSlots,
+                    "unavailableTimeSlots" to pref.unavailableTimeSlots
+                )
+            }
+
             ResponseEntity.ok(
                 mapOf(
                     "success" to true,
-                    "preferences" to preferences,
+                    "preferences" to formattedPreferences,
                     "statistics" to statistics,
                     "sessionId" to sessionId,
                     "totalSubmissions" to preferences.size,

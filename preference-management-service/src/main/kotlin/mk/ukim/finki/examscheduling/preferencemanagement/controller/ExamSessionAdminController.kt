@@ -65,39 +65,31 @@ class ExamSessionAdminController(
         @RequestParam sessionId: String,
         @Valid @RequestBody request: OpenSubmissionWindowRequest
     ): ResponseEntity<Map<String, Any?>> {
-        logger.info("Opening submission window for session: {}", sessionId)
-
         return try {
-            val currentUser = SecurityUtils.getCurrentUser()
+            val session = sessionRepository.findById(sessionId).orElse(null)
+                ?: return ResponseEntity.notFound().build()
 
-            preferenceService.openPreferenceSubmissionWindow(
-                request.copy(
-                    examSessionPeriodId = sessionId,
-                    openedBy = currentUser?.id ?: "UNKNOWN"
-                )
-            ).get()
+            if (session.isWindowOpen) {
+                return ResponseEntity.badRequest().body(mapOf(
+                    "success" to false,
+                    "error" to "Window is already open"
+                ))
+            }
 
-            logger.info("Submission window opened successfully for session: {}", sessionId)
-
-            ResponseEntity.ok(
-                mapOf(
-                    "success" to true,
-                    "message" to "Submission window opened successfully",
-                    "sessionId" to sessionId,
-                    "submissionDeadline" to request.submissionDeadline,
-                    "timestamp" to Instant.now()
-                )
+            val updatedSession = session.copy(
+                isWindowOpen = true,
+                submissionDeadline = request.submissionDeadline,
+                windowOpenedAt = Instant.now()
             )
+            sessionRepository.save(updatedSession)
+
+            ResponseEntity.ok(mapOf(
+                "success" to true,
+                "message" to "Submission window opened successfully"
+            ))
         } catch (e: Exception) {
-            logger.error("Error opening submission window for session: {}", sessionId, e)
-            ResponseEntity.badRequest()
-                .body(
-                    mapOf(
-                        "success" to false,
-                        "error" to e.message,
-                        "timestamp" to Instant.now()
-                    )
-                )
+            logger.error("Failed to open window", e)
+            ResponseEntity.badRequest().body(mapOf("success" to false, "error" to e.message))
         }
     }
 
@@ -109,35 +101,29 @@ class ExamSessionAdminController(
         logger.info("Closing submission window for session: {}", sessionId)
 
         return try {
-            val currentUser = SecurityUtils.getCurrentUser()
+            val session = sessionRepository.findById(sessionId).orElse(null)
+                ?: return ResponseEntity.notFound().build()
 
-            preferenceService.closePreferenceSubmissionWindow(
-                request.copy(
-                    examSessionPeriodId = sessionId,
-                    closedBy = currentUser?.id ?: "UNKNOWN"
-                )
-            ).get()
+            if (!session.isWindowOpen) {
+                return ResponseEntity.badRequest().body(mapOf(
+                    "success" to false,
+                    "error" to "Window is already closed"
+                ))
+            }
 
-            logger.info("Submission window closed successfully for session: {}", sessionId)
-
-            ResponseEntity.ok(
-                mapOf(
-                    "success" to true,
-                    "message" to "Submission window closed successfully",
-                    "sessionId" to sessionId,
-                    "timestamp" to Instant.now()
-                )
+            val updatedSession = session.copy(
+                isWindowOpen = false,
+                windowClosedAt = Instant.now()
             )
+            sessionRepository.save(updatedSession)
+
+            ResponseEntity.ok(mapOf(
+                "success" to true,
+                "message" to "Submission window closed successfully"
+            ))
         } catch (e: Exception) {
-            logger.error("Error closing submission window for session: {}", sessionId, e)
-            ResponseEntity.badRequest()
-                .body(
-                    mapOf(
-                        "success" to false,
-                        "error" to e.message,
-                        "timestamp" to Instant.now()
-                    )
-                )
+            logger.error("Failed to close window", e)
+            ResponseEntity.badRequest().body(mapOf("success" to false, "error" to e.message))
         }
     }
 
